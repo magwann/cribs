@@ -22,8 +22,9 @@ export function createPlayer(scene, camera, canvas) {
     dragging: false,
     lastX: 0,
     lastY: 0,
-    enabled: true,
-    speed: 4,        // units / second
+    enabled: true,        // movement (WASD)
+    cameraControl: true,  // owns the camera (off when top-down mode drives it)
+    speed: 4,             // units / second
   };
 
   // ---- Input ----
@@ -76,7 +77,9 @@ export function createPlayer(scene, camera, canvas) {
       avatar.position.z = Math.max(-mz, Math.min(mz, avatar.position.z));
     }
 
-    // Camera follows avatar on an orbit
+    // Camera follows avatar on an orbit — unless something else (top-down
+    // build view) has taken control of the camera.
+    if (!state.cameraControl) return;
     const target = avatar.position.clone().add(new THREE.Vector3(0, 1, 0));
     const cx = Math.sin(state.yaw) * Math.cos(state.pitch) * state.dist;
     const cz = Math.cos(state.yaw) * Math.cos(state.pitch) * state.dist;
@@ -89,6 +92,7 @@ export function createPlayer(scene, camera, canvas) {
     avatar,
     update,
     setEnabled: (v) => { state.enabled = v; if (!v) state.dragging = false; },
+    setCameraControl: (v) => { state.cameraControl = v; },
     getYaw: () => state.yaw,
   };
 }

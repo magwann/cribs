@@ -17,6 +17,7 @@ export function createUI(handlers) {
     buildToggle: $('build-toggle'),
     builder: $('builder'),
     buildClose: $('build-close'),
+    viewToggle: $('view-toggle'),
     catalog: $('catalog'),
     saveBtn: $('save-btn'),
     saveStatus: $('save-status'),
@@ -36,6 +37,7 @@ export function createUI(handlers) {
   el.start.addEventListener('click', () => { el.title.classList.add('hidden'); handlers.onStart(); });
   el.buildToggle.addEventListener('click', () => handlers.onToggleBuild());
   el.buildClose.addEventListener('click', () => handlers.onToggleBuild());
+  el.viewToggle.addEventListener('click', () => handlers.onToggleView());
   el.saveBtn.addEventListener('click', () => handlers.onSave());
   el.objTools.querySelectorAll('button').forEach((b) => {
     b.addEventListener('click', () => handlers.onObjAction(b.dataset.act));
@@ -50,6 +52,10 @@ export function createUI(handlers) {
     },
     setSelected(has) {
       el.objTools.classList.toggle('hidden', !has);
+    },
+    setView(topDown) {
+      // label shows the view you'll switch TO
+      el.viewToggle.textContent = topDown ? '⬔ 3D (V)' : '⬒ TOP (V)';
     },
     showHUD() { el.hud.classList.remove('hidden'); },
     flashSave(text) {

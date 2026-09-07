@@ -16,9 +16,34 @@ const player = createPlayer(scene, camera, canvas);
 
 let building = false;
 
+// ---- top-down build view ----
+// A near-orthographic overhead camera for laying out furniture. -Z points to
+// the top of the screen so the back wall reads as "up" on the map.
+let topDown = false;
+let tdHeight = 15; // camera height = zoom level
+function applyTopDown() {
+  camera.up.set(0, 0, -1);
+  camera.position.set(0, tdHeight, 0);
+  camera.lookAt(0, 0, 0);
+}
+function setView(td) {
+  topDown = td;
+  player.setCameraControl(!td);
+  if (td) applyTopDown();
+  else camera.up.set(0, 1, 0); // player.update repositions the orbit next frame
+  ui.setView(td);
+}
+// wheel zooms the overhead view in/out
+canvas.addEventListener('wheel', (e) => {
+  if (!topDown) return;
+  e.preventDefault();
+  tdHeight = Math.max(8, Math.min(22, tdHeight + e.deltaY * 0.01));
+}, { passive: false });
+
 const ui = createUI({
   onStart,
   onToggleBuild: toggleBuild,
+  onToggleView: toggleView,
   onPick: (id) => builder.arm(id),
   onSave,
   onObjAction: (act) => {
@@ -44,6 +69,13 @@ function toggleBuild() {
   builder.setActive(building);
   player.setEnabled(!building);
   ui.setMode(building);
+  // Default to the overhead view when building; restore 3D on exit.
+  setView(building);
+}
+
+function toggleView() {
+  if (!building) return; // top-down only applies while building
+  setView(!topDown);
 }
 
 function onSave() {
@@ -56,6 +88,7 @@ window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'b') toggleBuild();
   if (!building) return;
+  if (k === 'v') toggleView();
   if (k === 'r') builder.rotateSelected();
   if (k === 'delete' || k === 'backspace') builder.deleteSelected();
 });
@@ -65,6 +98,7 @@ const clock = new THREE.Clock();
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   player.update(dt);
+  if (topDown) applyTopDown(); // keep overhead framing on zoom / resize
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }
