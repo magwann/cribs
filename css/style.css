@@ -1,0 +1,160 @@
+:root {
+  --ink: #e8e6dd;
+  --panel: rgba(18, 20, 30, 0.82);
+  --accent: #7cf0c8;
+  --accent2: #ff5c8a;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; overflow: hidden; background: #0a0a12; }
+
+/* Canvas fills the screen; the PS2 chunkiness comes from rendering at
+   low resolution and letting the browser upscale with hard pixels. */
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+}
+
+.hidden { display: none !important; }
+
+/* ---------- Overlays ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 30%, #1b2a4a 0%, #0a0a12 70%);
+  z-index: 20;
+}
+
+.title-card { text-align: center; color: var(--ink); }
+
+.title-card h1 {
+  font-size: clamp(3rem, 12vw, 7rem);
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  text-shadow: 4px 4px 0 var(--accent2), 8px 8px 0 rgba(0,0,0,0.4);
+}
+
+.tag { margin-top: 0.5rem; opacity: 0.8; letter-spacing: 0.2em; text-transform: lowercase; }
+
+#start-btn {
+  margin-top: 2rem;
+  padding: 0.8rem 3rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  color: #0a0a12;
+  background: var(--accent);
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+}
+#start-btn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 rgba(0,0,0,0.5); }
+#start-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 rgba(0,0,0,0.5); }
+
+.hint { margin-top: 1.5rem; font-size: 0.8rem; opacity: 0.5; letter-spacing: 0.1em; }
+
+/* ---------- HUD ---------- */
+#hud {
+  position: fixed;
+  top: 12px; left: 12px; right: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  z-index: 10; pointer-events: none;
+}
+#hud > * { pointer-events: auto; }
+
+#mode-pill {
+  color: var(--ink);
+  background: var(--panel);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.hud-btn {
+  color: #0a0a12;
+  background: var(--accent);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 3px;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+}
+.hud-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 rgba(0,0,0,0.5); }
+
+/* ---------- Builder panel ---------- */
+#builder {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 260px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  border-left: 1px solid rgba(255,255,255,0.12);
+  color: var(--ink);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+}
+.builder-head, .builder-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+  letter-spacing: 0.2em; font-size: 0.85rem;
+}
+.builder-head { border-bottom: 1px solid rgba(255,255,255,0.1); }
+.builder-foot { border-top: 1px solid rgba(255,255,255,0.1); gap: 8px; }
+#build-close { background: none; border: none; color: var(--ink); font-size: 1.4rem; cursor: pointer; line-height: 1; }
+#save-status { font-size: 0.7rem; opacity: 0.7; letter-spacing: normal; }
+
+.catalog {
+  flex: 1; overflow-y: auto;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  padding: 12px;
+}
+.cat-item {
+  aspect-ratio: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px; font-size: 0.7rem; letter-spacing: 0.05em;
+  color: var(--ink);
+  transition: transform 0.08s;
+}
+.cat-item:hover { border-color: var(--accent); transform: translateY(-2px); }
+.cat-item .swatch { width: 34px; height: 34px; border-radius: 3px; }
+
+/* ---------- Object tools ---------- */
+#obj-tools {
+  position: fixed;
+  bottom: 16px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--ink);
+  z-index: 15;
+}
+#obj-tools button {
+  background: rgba(255,255,255,0.1);
+  color: var(--ink);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+}
+#obj-tools button:hover { border-color: var(--accent); }
+#obj-tools .tip { font-size: 0.7rem; opacity: 0.5; margin-left: 6px; }

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>CRIBS</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230a0a12'/><rect x='3' y='7' width='10' height='6' fill='%237cf0c8'/><rect x='2' y='7' width='12' height='2' fill='%23ff5c8a'/></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- No build step: load Three.js as ES modules straight from a CDN. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Loading / title -->
+  <div id="title" class="overlay">
+    <div class="title-card">
+      <h1>CRIBS</h1>
+      <p class="tag">build your place. show it off.</p>
+      <button id="start-btn">ENTER</button>
+      <p class="hint">WASD move &nbsp;·&nbsp; drag to look &nbsp;·&nbsp; B to build</p>
+    </div>
+  </div>
+
+  <!-- In-game HUD -->
+  <div id="hud" class="hidden">
+    <div id="mode-pill">EXPLORE</div>
+    <button id="build-toggle" class="hud-btn">BUILD (B)</button>
+  </div>
+
+  <!-- Build palette -->
+  <div id="builder" class="hidden">
+    <div class="builder-head">
+      <span>CATALOG</span>
+      <button id="build-close">×</button>
+    </div>
+    <div id="catalog" class="catalog"></div>
+    <div class="builder-foot">
+      <button id="save-btn" class="hud-btn">SAVE</button>
+      <span id="save-status"></span>
+    </div>
+  </div>
+
+  <!-- Selected-object toolbar (appears when an item is picked in build mode) -->
+  <div id="obj-tools" class="hidden">
+    <button data-act="rotate">⟳ Rotate (R)</button>
+    <button data-act="delete">🗑 Delete (⌫)</button>
+    <span class="tip">click floor to place · drag item to move</span>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
