@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cribs: anyone can visit; only the owner edits their own (doc id == uid).
+    match /cribs/{cribId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == cribId;
+    }
+
+    // Public profiles (handle + crib name).
+    match /users/{uid} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Unique @handle claims. Anyone can look one up; you can only create/hold
+    // a handle that points at your own uid.
+    match /usernames/{handle} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+  }
+}

@@ -118,14 +118,16 @@ export function createPlayer(scene, camera, canvas) {
   };
 }
 
-function buildAvatar() {
+// Exported so remote players (net avatars) can be built the same way, tinted
+// by a per-person body color.
+export function buildAvatar(bodyColor = 0x7cf0c8) {
   const g = new THREE.Group();
   const mk = (geo, color) => {
     const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color, flatShading: true }));
     m.castShadow = true;
     return m;
   };
-  const body = mk(new THREE.CapsuleGeometry(0.25, 0.5, 2, 6), 0x7cf0c8);
+  const body = mk(new THREE.CapsuleGeometry(0.25, 0.5, 2, 6), bodyColor);
   body.position.y = 0.75;
   g.add(body);
   const head = mk(new THREE.IcosahedronGeometry(0.22, 0), 0xffd8a8);

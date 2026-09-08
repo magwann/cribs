@@ -14,7 +14,8 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
       "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
       "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
-      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js",
+      "firebase/database": "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"
     }
   }
   </script>
@@ -37,9 +38,46 @@
     <div id="mode-pill">EXPLORE</div>
     <div class="hud-right">
       <button id="account-btn" class="hud-btn ghost">GO ONLINE</button>
+      <button id="people-btn" class="hud-btn ghost hidden">PEOPLE</button>
+      <button id="leave-room" class="hud-btn ghost hidden">◄ LEAVE ROOM</button>
       <button id="share-btn" class="hud-btn ghost">SHARE</button>
       <button id="leave-btn" class="hud-btn ghost hidden">◄ MY CRIB</button>
       <button id="build-toggle" class="hud-btn">BUILD (B)</button>
+    </div>
+  </div>
+
+  <!-- People panel: search a handle, knock, and handle incoming requests -->
+  <div id="people" class="side-panel hidden">
+    <div class="panel-head"><span>PEOPLE</span><button id="people-close">×</button></div>
+    <div class="panel-body">
+      <div class="search-row">
+        <input id="friend-search" class="panel-input" placeholder="@username" />
+        <button id="friend-go" class="mini-btn">Find</button>
+      </div>
+      <div id="friend-results" class="results"></div>
+
+      <div class="panel-label">Requests to enter your crib</div>
+      <div id="knock-list" class="results"><div class="muted">none yet</div></div>
+
+      <div class="panel-label">In this room</div>
+      <div id="room-roster" class="results"><div class="muted">just you</div></div>
+    </div>
+  </div>
+
+  <!-- Room chat -->
+  <div id="chat" class="hidden">
+    <div id="chat-log" class="chat-log"></div>
+    <input id="chat-input" class="chat-input" placeholder="say something… (Enter)" maxlength="240" />
+  </div>
+
+  <!-- Username claim modal -->
+  <div id="name-modal" class="overlay hidden">
+    <div class="auth-card">
+      <h2>PICK A @HANDLE</h2>
+      <p class="auth-sub">This is how friends find you. 3–16 chars: letters, numbers, underscore.</p>
+      <input id="name-input" class="auth-input" placeholder="@yourname" autocomplete="off" />
+      <button id="name-save" class="auth-provider">Claim it</button>
+      <p id="name-error" class="auth-error"></p>
     </div>
   </div>
 

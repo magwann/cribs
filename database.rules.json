@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "presence": {
+      ".read": true,
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "knocks": {
+      "$host": {
+        ".read": "auth != null && auth.uid === $host",
+        "$visitor": {
+          ".read": "auth != null && auth.uid === $visitor",
+          ".write": "auth != null && (auth.uid === $visitor || auth.uid === $host)"
+        }
+      }
+    },
+    "rooms": {
+      "$host": {
+        ".read": "auth != null",
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        },
+        "chat": {
+          ".write": "auth != null"
+        }
+      }
+    }
+  }
+}

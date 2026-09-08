@@ -210,6 +210,72 @@ html, body { height: 100%; overflow: hidden; background: #0a0a12; }
 .cat-item:hover { border-color: var(--accent); transform: translateY(-2px); }
 .cat-item .swatch { width: 34px; height: 34px; border-radius: 3px; }
 
+/* ---------- People panel ---------- */
+.side-panel {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 280px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  border-right: 1px solid rgba(255,255,255,0.12);
+  color: var(--ink);
+  z-index: 15;
+  display: flex; flex-direction: column;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; letter-spacing: 0.2em; font-size: 0.85rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.panel-head button { background: none; border: none; color: var(--ink); font-size: 1.4rem; cursor: pointer; }
+.panel-body { padding: 12px; overflow-y: auto; }
+.panel-label { margin: 16px 0 6px; font-size: 0.7rem; letter-spacing: 0.15em; opacity: 0.6; text-transform: uppercase; }
+.search-row { display: flex; gap: 6px; }
+.panel-input {
+  flex: 1; padding: 8px 10px;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px; color: var(--ink); font-size: 0.85rem;
+}
+.panel-input:focus { outline: none; border-color: var(--accent); }
+.results { display: flex; flex-direction: column; gap: 6px; }
+.muted { opacity: 0.4; font-size: 0.8rem; padding: 4px 0; }
+.person {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; padding: 8px 10px; font-size: 0.85rem;
+}
+.person .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; margin-right: 6px; display: inline-block; }
+.person .dot.on { background: var(--accent); }
+.person .who { display: flex; align-items: center; flex: 1; }
+.person button {
+  background: var(--accent); color: #0a0a12; border: none;
+  padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;
+}
+.person button.deny { background: rgba(255,255,255,0.12); color: var(--ink); }
+
+/* ---------- Chat ---------- */
+#chat {
+  position: fixed;
+  bottom: 16px; left: 16px;
+  width: 300px; max-width: 60vw;
+  z-index: 12;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.chat-log {
+  display: flex; flex-direction: column; gap: 3px;
+  max-height: 200px; overflow-y: auto;
+  font-size: 0.82rem; color: var(--ink);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.8);
+}
+.chat-log .msg { line-height: 1.35; }
+.chat-log .msg b { color: var(--accent); }
+.chat-input {
+  padding: 9px 12px;
+  background: var(--panel); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 999px; color: var(--ink); font-size: 0.85rem;
+}
+.chat-input:focus { outline: none; border-color: var(--accent); }
+
 /* ---------- Object tools ---------- */
 #obj-tools {
   position: fixed;

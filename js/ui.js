@@ -6,6 +6,12 @@ import { CATALOG } from './catalog.js';
 // setters that main.js calls. Keeps all querySelector noise out of main.js.
 // ---------------------------------------------------------------------------
 
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 export function createUI(handlers) {
   const $ = (id) => document.getElementById(id);
 
@@ -35,6 +41,22 @@ export function createUI(handlers) {
     authSignin: $('auth-signin'),
     authSignup: $('auth-signup'),
     authError: $('auth-error'),
+    peopleBtn: $('people-btn'),
+    leaveRoomBtn: $('leave-room'),
+    people: $('people'),
+    peopleClose: $('people-close'),
+    friendSearch: $('friend-search'),
+    friendGo: $('friend-go'),
+    friendResults: $('friend-results'),
+    knockList: $('knock-list'),
+    roomRoster: $('room-roster'),
+    chat: $('chat'),
+    chatLog: $('chat-log'),
+    chatInput: $('chat-input'),
+    nameModal: $('name-modal'),
+    nameInput: $('name-input'),
+    nameSave: $('name-save'),
+    nameError: $('name-error'),
   };
   const creds = () => ({ email: el.authEmail.value.trim(), pass: el.authPass.value });
 
@@ -63,6 +85,22 @@ export function createUI(handlers) {
   el.authApple.addEventListener('click', () => handlers.onAuth('apple'));
   el.authSignin.addEventListener('click', () => handlers.onAuth('signin', creds()));
   el.authSignup.addEventListener('click', () => handlers.onAuth('signup', creds()));
+
+  // people / rooms / chat
+  el.peopleBtn.addEventListener('click', () => el.people.classList.toggle('hidden'));
+  el.peopleClose.addEventListener('click', () => el.people.classList.add('hidden'));
+  el.leaveRoomBtn.addEventListener('click', () => handlers.onLeaveRoom());
+  const doSearch = () => handlers.onSearch(el.friendSearch.value);
+  el.friendGo.addEventListener('click', doSearch);
+  el.friendSearch.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+  el.chatInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const t = el.chatInput.value; el.chatInput.value = '';
+    if (t.trim()) handlers.onSendChat(t);
+  });
+  const claim = () => handlers.onClaimUsername(el.nameInput.value);
+  el.nameSave.addEventListener('click', claim);
+  el.nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') claim(); });
   el.objTools.querySelectorAll('button').forEach((b) => {
     b.addEventListener('click', () => handlers.onObjAction(b.dataset.act));
   });
@@ -107,15 +145,73 @@ export function createUI(handlers) {
     openAuth() { el.authError.textContent = ''; el.authModal.classList.remove('hidden'); },
     closeAuth() { el.authModal.classList.add('hidden'); },
     setAuthError(msg) { el.authError.textContent = msg || ''; },
-    setOnline(user) {
-      // user is a Firebase user or null
+    setOnline(user, handle) {
       if (user) {
-        const name = user.displayName || (user.email ? user.email.split('@')[0] : 'online');
-        el.accountBtn.textContent = `● ${name}`;
+        el.accountBtn.textContent = `● ${handle ? '@' + handle : 'online'}`;
         el.authModal.classList.add('hidden');
+        el.peopleBtn.classList.remove('hidden');
       } else {
         el.accountBtn.textContent = 'GO ONLINE';
+        el.peopleBtn.classList.add('hidden');
+        el.people.classList.add('hidden');
       }
+    },
+    openUsername(prefill) {
+      el.nameError.textContent = '';
+      if (prefill) el.nameInput.value = prefill;
+      el.nameModal.classList.remove('hidden');
+      el.nameInput.focus();
+    },
+    closeUsername() { el.nameModal.classList.add('hidden'); },
+    setUsernameError(msg) { el.nameError.textContent = msg || ''; },
+
+    setSearchResults(list) {
+      el.friendResults.innerHTML = '';
+      if (!list || !list.length) { el.friendResults.innerHTML = '<div class="muted">no one found</div>'; return; }
+      for (const r of list) {
+        const row = document.createElement('div');
+        row.className = 'person';
+        const btn = r.self ? '<span class="muted">you</span>'
+          : `<button data-uid="${r.uid}" data-handle="${r.handle}">Knock</button>`;
+        row.innerHTML = `<span class="who"><span class="dot ${r.online ? 'on' : ''}"></span>@${r.handle}</span>${btn}`;
+        const b = row.querySelector('button');
+        if (b) b.addEventListener('click', () => handlers.onKnock(r.uid, r.handle));
+        el.friendResults.appendChild(row);
+      }
+    },
+
+    setKnocks(list) {
+      const pending = (list || []).filter((k) => k.status === 'pending');
+      el.knockList.innerHTML = '';
+      if (!pending.length) { el.knockList.innerHTML = '<div class="muted">none yet</div>'; return; }
+      for (const k of pending) {
+        const row = document.createElement('div');
+        row.className = 'person';
+        row.innerHTML = `<span class="who">@${k.handle}</span>
+          <span><button data-ok="1">Let in</button> <button class="deny">Deny</button></span>`;
+        const [ok, deny] = row.querySelectorAll('button');
+        ok.addEventListener('click', () => handlers.onRespondKnock(k.visitorUid, true));
+        deny.addEventListener('click', () => handlers.onRespondKnock(k.visitorUid, false));
+        el.knockList.appendChild(row);
+      }
+    },
+
+    setRoster(players, selfUid) {
+      const names = Object.entries(players || {}).map(([uid, p]) => uid === selfUid ? 'you' : '@' + (p.handle || 'guest'));
+      el.roomRoster.innerHTML = names.length
+        ? names.map((n) => `<div class="person"><span class="who">${n}</span></div>`).join('')
+        : '<div class="muted">just you</div>';
+    },
+
+    setRoomMode(inRoom, isVisiting) {
+      el.chat.classList.toggle('hidden', !inRoom);
+      el.leaveRoomBtn.classList.toggle('hidden', !isVisiting);
+    },
+
+    setChat(msgs) {
+      el.chatLog.innerHTML = (msgs || []).slice(-40)
+        .map((m) => `<div class="msg"><b>@${escapeHtml(m.handle)}</b> ${escapeHtml(m.text)}</div>`).join('');
+      el.chatLog.scrollTop = el.chatLog.scrollHeight;
     },
   };
 }

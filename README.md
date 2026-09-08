@@ -12,7 +12,22 @@ entirely in the browser, no install.
 - ✅ Local-first: build & explore with **no account**; saved to localStorage
 - ✅ Go online (Google / Apple / email) to publish your crib to Firestore
 - ✅ Visit a published crib via `?crib=<id>` (read-only, no account needed)
-- ⏳ Next: live rooms — search a friend, request to enter, hang out together + chat
+- ✅ Live rooms: search a @handle → knock → they approve → hang out together,
+     see each other's avatars move in real time, and chat
+
+## Firebase setup for live rooms
+
+The realtime layer needs a Realtime Database and matching security rules:
+
+1. **Realtime Database** — console → Build → Realtime Database → Create
+   database. Copy its URL from the top of the Data tab into
+   `js/firebase-config.js` (`databaseURL`). Paste `database.rules.json` into
+   the **Rules** tab → Publish.
+2. **Firestore rules** — paste `firestore.rules` into Firestore → Rules →
+   Publish (adds `users` + `usernames` on top of `cribs`).
+3. **Auth** — enable the providers you want (Google / Apple / Email+Password)
+   under Authentication → Sign-in method, and add `magwann.github.io` +
+   `localhost` under Authentication → Settings → Authorized domains.
 
 ## Controls
 

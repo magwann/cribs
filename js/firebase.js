@@ -19,6 +19,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Shared with the realtime/social layer (net.js).
+export { app, auth, db };
+
 let currentUser = null;
 const listeners = [];
 onAuthStateChanged(auth, (u) => {
