@@ -3,13 +3,17 @@ import { createWorld } from './world.js';
 import { createPlayer } from './player.js';
 import { createBuilder } from './builder.js';
 import { createUI } from './ui.js';
+import { CATALOG_BY_ID } from './catalog.js';
 import { saveCrib as saveLocal, loadCrib as loadLocal } from './storage.js';
-import { authReady, saveMyCrib, loadCribById } from './firebase.js';
+import {
+  onUser, getUid, saveMyCrib, loadCribById,
+  signInGoogle, signInApple, signInEmail, signUpEmail, logOut,
+} from './firebase.js';
 
 // ---------------------------------------------------------------------------
-// MAIN — bootstraps modules, owns mode state + render loop, and orchestrates
-// the cloud layer: anonymous auth, loading your own crib (or someone else's
-// via ?crib=<id>), and saving to Firestore.
+// MAIN — bootstraps modules, owns mode state + render loop.
+// Local-first: building/exploring/visiting need no account. Signing in ("go
+// online") publishes your crib to the cloud and unlocks social features.
 // ---------------------------------------------------------------------------
 
 const canvas = document.getElementById('game');
@@ -18,8 +22,7 @@ const player = createPlayer(scene, camera, canvas);
 
 let building = false;
 let visiting = false; // true when in someone else's crib (read-only)
-let myUid = null;
-let cribId = null;    // the crib currently loaded
+let cribId = null;    // the crib currently loaded (id when visiting)
 
 // ---- top-down build view ----
 let topDown = false;
@@ -50,6 +53,8 @@ const ui = createUI({
   onSave,
   onShare,
   onLeave,
+  onAccount,
+  onAuth,
   onObjAction: (act) => {
     if (act === 'rotate') builder.rotateSelected();
     if (act === 'delete') builder.deleteSelected();
@@ -60,43 +65,67 @@ const builder = createBuilder(scene, camera, canvas, {
   onSelect: (item) => ui.setSelected(!!item),
 });
 
-// ---- cloud boot ----
-initCloud();
-async function initCloud() {
-  const params = new URLSearchParams(location.search);
-  const targetId = params.get('crib');
+// ---- click-a-seat-to-sit (explore mode only) ----
+let downX = 0, downY = 0;
+canvas.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
+canvas.addEventListener('pointerup', (e) => {
+  if (building) return;                          // build mode handles its own clicks
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return; // was a camera drag
+  const item = builder.pickItemAt(e.clientX, e.clientY);
+  if (!item) return;
+  const cat = CATALOG_BY_ID[item.id];
+  if (cat && cat.sit) sitOn(item, cat);
+});
 
-  try {
-    myUid = await authReady;
-  } catch (e) {
-    console.error('auth failed', e);
-    ui.toast('offline — changes save locally only');
+function sitOn(item, cat) {
+  item.group.updateMatrixWorld();
+  let best = null, bestD = Infinity;
+  for (const s of cat.sit) {
+    const w = new THREE.Vector3(s.x, s.y, s.z).applyMatrix4(item.group.matrixWorld);
+    const d = w.distanceTo(player.avatar.position);
+    if (d < bestD) { bestD = d; best = { w, yaw: item.group.rotation.y + (s.yaw || 0) }; }
   }
+  if (best) { player.sit(best.w, best.yaw); ui.toast('sitting — press W to stand'); }
+}
 
-  cribId = targetId || myUid;
-  visiting = !!(cribId && myUid && cribId !== myUid);
+// ---- boot (no auth) ----
+initBoot();
+async function initBoot() {
+  const params = new URLSearchParams(location.search);
+  cribId = params.get('crib');
+  visiting = !!cribId;
 
   let data = null;
-  try {
-    if (cribId) data = await loadCribById(cribId);
-  } catch (e) {
-    console.error('crib load failed', e);
+  if (visiting) {
+    try { data = await loadCribById(cribId); }
+    catch (e) { console.error('crib load failed', e); }
+    if (!data) ui.toast('that crib could not be found');
+  } else {
+    data = loadLocal(); // your own crib lives locally until you go online
   }
-
-  // First run on your own crib: migrate any milestone-1 local layout to cloud.
-  if (!visiting && !data) {
-    const local = loadLocal();
-    if (local) data = local;
-  }
-
   if (data && data.items) builder.loadItems(data.items);
   ui.setVisiting(visiting, data && data.name);
 }
 
+// Keep the account chip in sync; publish your crib the moment you go online.
+let wasOnline = false;
+onUser(async (user) => {
+  ui.setOnline(user);
+  if (user && !wasOnline && !visiting) {
+    wasOnline = true;
+    try {
+      await saveMyCrib(builder.getItemsData());
+      ui.toast('you’re online — crib published ✓');
+    } catch (e) { console.error('publish failed', e); }
+  }
+  if (!user) wasOnline = false;
+});
+
 function onStart() { ui.showHUD(); }
 
 function toggleBuild() {
-  if (visiting) { ui.toast("this isn't your crib — visit ends when you leave"); return; }
+  if (visiting) { ui.toast("this isn't your crib"); return; }
+  player.stand();
   building = !building;
   builder.setActive(building);
   player.setEnabled(!building);
@@ -111,38 +140,65 @@ function toggleView() {
 
 async function onSave() {
   const items = builder.getItemsData();
-  saveLocal(items); // offline mirror
-  try {
-    await saveMyCrib(items);
-    ui.flashSave('saved to cloud ✓');
-  } catch (e) {
-    console.error('cloud save failed', e);
-    ui.flashSave('saved locally (offline)');
+  saveLocal(items); // always keep a local copy
+  if (getUid()) {
+    try { await saveMyCrib(items); ui.flashSave('saved to cloud ✓'); }
+    catch (e) { console.error(e); ui.flashSave('saved locally (cloud error)'); }
+  } else {
+    ui.flashSave('saved locally');
   }
 }
 
 function onShare() {
-  const id = visiting ? cribId : myUid;
-  if (!id) { ui.toast('still connecting…'); return; }
+  if (visiting) return share(cribId);
+  const uid = getUid();
+  if (!uid) { ui.toast('go online to share your crib'); ui.openAuth(); return; }
+  share(uid);
+}
+function share(id) {
   const url = `${location.origin}${location.pathname}?crib=${id}`;
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(url).then(
-      () => ui.toast('crib link copied ✓'),
-      () => ui.toast(url)
-    );
+    navigator.clipboard.writeText(url).then(() => ui.toast('crib link copied ✓'), () => ui.toast(url));
+  } else ui.toast(url);
+}
+
+function onLeave() { location.href = `${location.origin}${location.pathname}`; }
+
+function onAccount() {
+  if (getUid()) {
+    if (confirm('Sign out and go offline?')) logOut();
   } else {
-    ui.toast(url);
+    ui.openAuth();
   }
 }
 
-function onLeave() {
-  // Drop the ?crib param to return to your own (editable) crib.
-  location.href = `${location.origin}${location.pathname}`;
+async function onAuth(kind, creds) {
+  ui.setAuthError('');
+  try {
+    if (kind === 'google') await signInGoogle();
+    else if (kind === 'apple') await signInApple();
+    else if (kind === 'signin') await signInEmail(creds.email, creds.pass);
+    else if (kind === 'signup') await signUpEmail(creds.email, creds.pass);
+  } catch (e) {
+    console.error('auth error', e);
+    ui.setAuthError(prettyAuthError(e));
+  }
+}
+function prettyAuthError(e) {
+  const c = (e && e.code) || '';
+  if (c.includes('popup-closed')) return 'sign-in cancelled';
+  if (c.includes('operation-not-allowed')) return 'that provider isn’t enabled yet';
+  if (c.includes('invalid-credential') || c.includes('wrong-password')) return 'wrong email or password';
+  if (c.includes('email-already-in-use')) return 'that email already has an account';
+  if (c.includes('weak-password')) return 'password too short (min 6)';
+  if (c.includes('invalid-email')) return 'that email looks invalid';
+  return (e && e.message) || 'sign-in failed';
 }
 
 // keyboard shortcuts
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
+  if (e.target && /input|textarea/i.test(e.target.tagName)) return; // don't hijack the email box
   if (k === 'b') toggleBuild();
   if (!building) return;
   if (k === 'v') toggleView();

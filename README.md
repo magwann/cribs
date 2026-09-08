@@ -4,13 +4,15 @@ A social online game where you build your own low-poly digital home — your
 **crib** — and visit other people's. PS2-era chunky-pixel aesthetic, runs
 entirely in the browser, no install.
 
-## Status — Milestone 1: the Crib Builder
+## Status
 
 - ✅ Walkable low-poly room, third-person avatar (WASD + drag to look)
-- ✅ Build mode: place, move, rotate, delete furniture from a catalog
-- ✅ Save / load your crib (browser localStorage for now)
-- ⏳ Next: Firebase auth + cloud-saved cribs
-- ⏳ Then: live presence — see other visitors' avatars in real time
+- ✅ Build mode with a top-down layout view (V), place/move/rotate/delete furniture
+- ✅ Sit on any chair or sofa (click it; W to stand)
+- ✅ Local-first: build & explore with **no account**; saved to localStorage
+- ✅ Go online (Google / Apple / email) to publish your crib to Firestore
+- ✅ Visit a published crib via `?crib=<id>` (read-only, no account needed)
+- ⏳ Next: live rooms — search a friend, request to enter, hang out together + chat
 
 ## Controls
 
@@ -21,8 +23,11 @@ entirely in the browser, no install.
 | **B**               | Toggle build mode             |
 | click catalog item  | Arm it, then click floor to place |
 | click an item       | Select it (then drag to move) |
+| **V**               | Toggle top-down / 3D build view |
 | **R**               | Rotate selected item          |
 | **Delete / ⌫**      | Remove selected item          |
+| click a seat        | Sit down (in explore mode)    |
+| **W** (while sat)   | Stand up                      |
 | **Save**            | Persist your crib             |
 
 ## Run locally

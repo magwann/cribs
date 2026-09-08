@@ -25,7 +25,18 @@ export function createUI(handlers) {
     shareBtn: $('share-btn'),
     leaveBtn: $('leave-btn'),
     toast: $('toast'),
+    accountBtn: $('account-btn'),
+    authModal: $('auth-modal'),
+    authClose: $('auth-close'),
+    authGoogle: $('auth-google'),
+    authApple: $('auth-apple'),
+    authEmail: $('auth-email'),
+    authPass: $('auth-pass'),
+    authSignin: $('auth-signin'),
+    authSignup: $('auth-signup'),
+    authError: $('auth-error'),
   };
+  const creds = () => ({ email: el.authEmail.value.trim(), pass: el.authPass.value });
 
   // --- build catalog palette ---
   for (const item of CATALOG) {
@@ -44,6 +55,14 @@ export function createUI(handlers) {
   el.saveBtn.addEventListener('click', () => handlers.onSave());
   el.shareBtn.addEventListener('click', () => handlers.onShare());
   el.leaveBtn.addEventListener('click', () => handlers.onLeave());
+
+  // auth
+  el.accountBtn.addEventListener('click', () => handlers.onAccount());
+  el.authClose.addEventListener('click', () => el.authModal.classList.add('hidden'));
+  el.authGoogle.addEventListener('click', () => handlers.onAuth('google'));
+  el.authApple.addEventListener('click', () => handlers.onAuth('apple'));
+  el.authSignin.addEventListener('click', () => handlers.onAuth('signin', creds()));
+  el.authSignup.addEventListener('click', () => handlers.onAuth('signup', creds()));
   el.objTools.querySelectorAll('button').forEach((b) => {
     b.addEventListener('click', () => handlers.onObjAction(b.dataset.act));
   });
@@ -84,6 +103,19 @@ export function createUI(handlers) {
       el.toast.classList.remove('hidden');
       clearTimeout(el.toast._t);
       el.toast._t = setTimeout(() => el.toast.classList.add('hidden'), 2600);
+    },
+    openAuth() { el.authError.textContent = ''; el.authModal.classList.remove('hidden'); },
+    closeAuth() { el.authModal.classList.add('hidden'); },
+    setAuthError(msg) { el.authError.textContent = msg || ''; },
+    setOnline(user) {
+      // user is a Firebase user or null
+      if (user) {
+        const name = user.displayName || (user.email ? user.email.split('@')[0] : 'online');
+        el.accountBtn.textContent = `● ${name}`;
+        el.authModal.classList.add('hidden');
+      } else {
+        el.accountBtn.textContent = 'GO ONLINE';
+      }
     },
   };
 }

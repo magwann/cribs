@@ -24,8 +24,21 @@ export function createPlayer(scene, camera, canvas) {
     lastY: 0,
     enabled: true,        // movement (WASD)
     cameraControl: true,  // owns the camera (off when top-down mode drives it)
+    sitting: false,       // seated on a couch/chair
     speed: 4,             // units / second
   };
+
+  function sit(worldPos, yaw) {
+    state.sitting = true;
+    // Sink the avatar so its lower body rests on the cushion.
+    avatar.position.set(worldPos.x, Math.max(-0.1, worldPos.y - 0.55), worldPos.z);
+    avatar.rotation.y = yaw;
+  }
+  function stand() {
+    if (!state.sitting) return;
+    state.sitting = false;
+    avatar.position.y = 0;
+  }
 
   // ---- Input ----
   window.addEventListener('keydown', (e) => {
@@ -53,7 +66,12 @@ export function createPlayer(scene, camera, canvas) {
   });
 
   function update(dt) {
-    if (state.enabled) {
+    // Any movement key stands you up out of a seat first.
+    if (state.sitting && (state.keys['w'] || state.keys['a'] || state.keys['s'] || state.keys['d'] || state.keys[' '])) {
+      stand();
+    }
+
+    if (state.enabled && !state.sitting) {
       // Movement basis from camera yaw
       const forward = new THREE.Vector3(Math.sin(state.yaw), 0, Math.cos(state.yaw));
       const rightV = new THREE.Vector3(forward.z, 0, -forward.x);
@@ -93,6 +111,9 @@ export function createPlayer(scene, camera, canvas) {
     update,
     setEnabled: (v) => { state.enabled = v; if (!v) state.dragging = false; },
     setCameraControl: (v) => { state.cameraControl = v; },
+    sit,
+    stand,
+    isSitting: () => state.sitting,
     getYaw: () => state.yaw,
   };
 }

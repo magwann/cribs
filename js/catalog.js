@@ -34,6 +34,9 @@ export const CATALOG = [
     id: 'chair',
     label: 'Chair',
     swatch: '#c86b3c',
+    // sit anchors are local to the group; yaw is added to the item's rotation.
+    // The chair's back is at -z, so you sit facing +z (yaw 0).
+    sit: [{ x: 0, y: 0.45, z: 0, yaw: 0 }],
     build() {
       const g = new THREE.Group();
       const wood = '#8a5a34';
@@ -61,6 +64,10 @@ export const CATALOG = [
     id: 'sofa',
     label: 'Sofa',
     swatch: '#4a6fa5',
+    sit: [
+      { x: -0.38, y: 0.55, z: 0.05, yaw: 0 },
+      { x: 0.38, y: 0.55, z: 0.05, yaw: 0 },
+    ],
     build() {
       const g = new THREE.Group();
       const c = '#4a6fa5';
@@ -70,19 +77,6 @@ export const CATALOG = [
       g.add(box(0.25, 0.5, 0.8, c, 0.78, 0.55, 0));              // arm R
       g.add(box(0.7, 0.15, 0.7, '#5f85bb', -0.38, 0.55, 0.02));  // cushion L
       g.add(box(0.7, 0.15, 0.7, '#5f85bb', 0.38, 0.55, 0.02));   // cushion R
-      return g;
-    },
-  },
-  {
-    id: 'bed',
-    label: 'Bed',
-    swatch: '#c85a7a',
-    build() {
-      const g = new THREE.Group();
-      g.add(box(1.4, 0.3, 2.0, '#6b4a34', 0, 0.2, 0));           // frame
-      g.add(box(1.3, 0.2, 1.9, '#e8e6dd', 0, 0.42, 0.02));       // mattress
-      g.add(box(1.2, 0.15, 0.5, '#c85a7a', 0, 0.5, -0.65));      // pillow area
-      g.add(box(1.4, 0.6, 0.12, '#5a3a28', 0, 0.5, -1.0));       // headboard
       return g;
     },
   },

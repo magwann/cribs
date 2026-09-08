@@ -1,49 +1,54 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import {
+  getAuth, onAuthStateChanged, signOut,
+  signInWithPopup, GoogleAuthProvider, OAuthProvider,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+} from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { firebaseConfig } from './firebase-config.js';
 
 // ---------------------------------------------------------------------------
 // FIREBASE
-// Anonymous auth gives every visitor a stable UID that doubles as their crib
-// id. Cribs live at cribs/{uid} in Firestore — publicly readable (anyone can
-// visit) but writable only by the owner (enforced by the security rules).
-// The saved shape matches storage.js exactly, so this is a drop-in for the
-// old localStorage save.
+// Local-first: nothing here runs until the player chooses to GO ONLINE, except
+// reading a published crib for a visit (public read, no auth needed). Going
+// online signs in with Google / Apple / email+password; the uid is the crib id.
+// Cribs live at cribs/{uid} — public read, owner-only write (security rules).
 // ---------------------------------------------------------------------------
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUid = null;
-
-// Resolves with the signed-in UID once anonymous auth completes.
-export const authReady = new Promise((resolve, reject) => {
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      currentUid = user.uid;
-      resolve(user.uid);
-    }
-  });
-  signInAnonymously(auth).catch(reject);
+let currentUser = null;
+const listeners = [];
+onAuthStateChanged(auth, (u) => {
+  currentUser = u;
+  listeners.forEach((cb) => cb(u));
 });
 
-export function getUid() {
-  return currentUid;
-}
+export function onUser(cb) { listeners.push(cb); cb(currentUser); }
+export function getUser() { return currentUser; }
+export function getUid() { return currentUser ? currentUser.uid : null; }
 
-// Write the caller's own crib. Doc id === uid, so the rules allow it.
+// ---- sign-in methods (only invoked from the GO ONLINE flow) ----
+export function signInGoogle() { return signInWithPopup(auth, new GoogleAuthProvider()); }
+export function signInApple() { return signInWithPopup(auth, new OAuthProvider('apple.com')); }
+export function signInEmail(email, pw) { return signInWithEmailAndPassword(auth, email, pw); }
+export function signUpEmail(email, pw) { return createUserWithEmailAndPassword(auth, email, pw); }
+export function logOut() { return signOut(auth); }
+
+// ---- crib persistence ----
 export async function saveMyCrib(items, name = 'my crib') {
-  if (!currentUid) throw new Error('not signed in');
-  await setDoc(doc(db, 'cribs', currentUid), {
+  if (!currentUser) throw new Error('not online');
+  await setDoc(doc(db, 'cribs', currentUser.uid), {
     name,
     items,
+    owner: currentUser.uid,
     updatedAt: serverTimestamp(),
   });
 }
 
-// Read any crib by id (yours or someone else's). Null if it doesn't exist.
+// Read any crib by id — works unauthenticated (public read) so visits need no account.
 export async function loadCribById(id) {
   const snap = await getDoc(doc(db, 'cribs', id));
   return snap.exists() ? snap.data() : null;

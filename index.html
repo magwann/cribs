@@ -36,9 +36,29 @@
   <div id="hud" class="hidden">
     <div id="mode-pill">EXPLORE</div>
     <div class="hud-right">
+      <button id="account-btn" class="hud-btn ghost">GO ONLINE</button>
       <button id="share-btn" class="hud-btn ghost">SHARE</button>
       <button id="leave-btn" class="hud-btn ghost hidden">◄ MY CRIB</button>
       <button id="build-toggle" class="hud-btn">BUILD (B)</button>
+    </div>
+  </div>
+
+  <!-- Sign-in modal (only shown when the player chooses to go online) -->
+  <div id="auth-modal" class="overlay hidden">
+    <div class="auth-card">
+      <button id="auth-close" class="auth-close">×</button>
+      <h2>GO ONLINE</h2>
+      <p class="auth-sub">Building &amp; exploring is account-free. Sign in only to be visitable, add friends, and host live rooms.</p>
+      <button id="auth-google" class="auth-provider">Continue with Google</button>
+      <button id="auth-apple" class="auth-provider">Continue with Apple</button>
+      <div class="auth-divider"><span>or</span></div>
+      <input id="auth-email" class="auth-input" type="email" placeholder="email" autocomplete="email" />
+      <input id="auth-pass" class="auth-input" type="password" placeholder="password" autocomplete="current-password" />
+      <div class="auth-row">
+        <button id="auth-signin" class="auth-provider small">Sign in</button>
+        <button id="auth-signup" class="auth-provider small ghost">Create account</button>
+      </div>
+      <p id="auth-error" class="auth-error"></p>
     </div>
   </div>
 

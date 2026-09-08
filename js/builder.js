@@ -170,6 +170,8 @@ export function createBuilder(scene, camera, canvas, { onSelect } = {}) {
     rotateSelected,
     deleteSelected,
     getSelected: () => selected,
+    // Used by explore-mode interaction (e.g. click a couch to sit).
+    pickItemAt: (clientX, clientY) => pickItem(clientX, clientY),
 
     // serialization
     getItemsData() {
