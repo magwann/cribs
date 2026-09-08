@@ -22,6 +22,9 @@ export function createUI(handlers) {
     saveBtn: $('save-btn'),
     saveStatus: $('save-status'),
     objTools: $('obj-tools'),
+    shareBtn: $('share-btn'),
+    leaveBtn: $('leave-btn'),
+    toast: $('toast'),
   };
 
   // --- build catalog palette ---
@@ -39,6 +42,8 @@ export function createUI(handlers) {
   el.buildClose.addEventListener('click', () => handlers.onToggleBuild());
   el.viewToggle.addEventListener('click', () => handlers.onToggleView());
   el.saveBtn.addEventListener('click', () => handlers.onSave());
+  el.shareBtn.addEventListener('click', () => handlers.onShare());
+  el.leaveBtn.addEventListener('click', () => handlers.onLeave());
   el.objTools.querySelectorAll('button').forEach((b) => {
     b.addEventListener('click', () => handlers.onObjAction(b.dataset.act));
   });
@@ -57,10 +62,28 @@ export function createUI(handlers) {
       // label shows the view you'll switch TO
       el.viewToggle.textContent = topDown ? '⬔ 3D (V)' : '⬒ TOP (V)';
     },
+    setVisiting(visiting, cribName) {
+      // In someone else's crib you can walk around but not build.
+      el.buildToggle.classList.toggle('hidden', visiting);
+      el.leaveBtn.classList.toggle('hidden', !visiting);
+      if (visiting) {
+        el.modePill.textContent = cribName ? `VISITING · ${cribName}` : 'VISITING';
+        el.builder.classList.add('hidden');
+        el.objTools.classList.add('hidden');
+      } else {
+        el.modePill.textContent = 'EXPLORE';
+      }
+    },
     showHUD() { el.hud.classList.remove('hidden'); },
     flashSave(text) {
       el.saveStatus.textContent = text;
       setTimeout(() => { el.saveStatus.textContent = ''; }, 2000);
+    },
+    toast(text) {
+      el.toast.textContent = text;
+      el.toast.classList.remove('hidden');
+      clearTimeout(el.toast._t);
+      el.toast._t = setTimeout(() => el.toast.classList.add('hidden'), 2600);
     },
   };
 }

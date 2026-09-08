@@ -11,7 +11,10 @@
   {
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
     }
   }
   </script>
@@ -32,8 +35,15 @@
   <!-- In-game HUD -->
   <div id="hud" class="hidden">
     <div id="mode-pill">EXPLORE</div>
-    <button id="build-toggle" class="hud-btn">BUILD (B)</button>
+    <div class="hud-right">
+      <button id="share-btn" class="hud-btn ghost">SHARE</button>
+      <button id="leave-btn" class="hud-btn ghost hidden">◄ MY CRIB</button>
+      <button id="build-toggle" class="hud-btn">BUILD (B)</button>
+    </div>
   </div>
+
+  <!-- transient toast -->
+  <div id="toast" class="hidden"></div>
 
   <!-- Build palette -->
   <div id="builder" class="hidden">
