@@ -66,6 +66,10 @@ export function createRemotes(scene) {
         e.target.z = p.z || 0;
         e.target.y = p.sitting ? -0.1 : 0;
         e.target.ry = p.ry || 0;
+        if (p.color) { const bm = e.group.getObjectByName('body'); if (bm) bm.material.color.set(p.color); }
+        if (p.emote && p.emoteTs && p.emoteTs !== e.lastEmoteTs) {
+          e.lastEmoteTs = p.emoteTs; e.emote = p.emote; e.emoteT = 0;
+        }
       }
       for (const [uid, e] of map) {
         if (!seen.has(uid)) { scene.remove(e.group); map.delete(uid); }
@@ -78,11 +82,22 @@ export function createRemotes(scene) {
         e.group.position.x += (e.target.x - e.group.position.x) * k;
         e.group.position.y += (e.target.y - e.group.position.y) * k;
         e.group.position.z += (e.target.z - e.group.position.z) * k;
-        // shortest-arc rotate
-        let d = e.target.ry - e.group.rotation.y;
-        while (d > Math.PI) d -= Math.PI * 2;
-        while (d < -Math.PI) d += Math.PI * 2;
-        e.group.rotation.y += d * k;
+        if (e.emote === 'dance') {
+          e.emoteT += dt;
+          e.group.position.y += Math.abs(Math.sin(e.emoteT * 9)) * 0.18;
+          e.group.rotation.y += dt * 6;
+          if (e.emoteT > 4) { e.emote = null; e.group.rotation.z = 0; }
+        } else if (e.emote === 'wave') {
+          e.emoteT += dt;
+          e.group.rotation.z = Math.sin(e.emoteT * 11) * 0.25;
+          if (e.emoteT > 1.6) { e.emote = null; e.group.rotation.z = 0; }
+        } else {
+          // shortest-arc rotate toward target facing
+          let d = e.target.ry - e.group.rotation.y;
+          while (d > Math.PI) d -= Math.PI * 2;
+          while (d < -Math.PI) d += Math.PI * 2;
+          e.group.rotation.y += d * k;
+        }
       }
     },
 

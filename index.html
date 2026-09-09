@@ -23,12 +23,22 @@
 <body>
   <canvas id="game"></canvas>
 
-  <!-- Loading / title -->
+  <!-- Title = login gate. You must sign in to enter; you're always online. -->
   <div id="title" class="overlay">
     <div class="title-card">
       <h1>CRIBS</h1>
       <p class="tag">build your place. show it off.</p>
-      <button id="start-btn">ENTER</button>
+      <div id="login-box">
+        <button id="auth-google" class="auth-provider">Continue with Google</button>
+        <div class="auth-divider"><span>or</span></div>
+        <input id="auth-email" class="auth-input" type="email" placeholder="email" autocomplete="email" />
+        <input id="auth-pass" class="auth-input" type="password" placeholder="password" autocomplete="current-password" />
+        <div class="auth-row">
+          <button id="auth-signin" class="auth-provider small">Log in</button>
+          <button id="auth-signup" class="auth-provider small ghost">Sign up</button>
+        </div>
+        <p id="auth-error" class="auth-error"></p>
+      </div>
       <p class="hint">WASD move &nbsp;·&nbsp; drag to look &nbsp;·&nbsp; B to build</p>
     </div>
   </div>
@@ -37,7 +47,7 @@
   <div id="hud" class="hidden">
     <div id="mode-pill">EXPLORE</div>
     <div class="hud-right">
-      <button id="account-btn" class="hud-btn ghost">GO ONLINE</button>
+      <button id="account-btn" class="hud-btn ghost">●</button>
       <button id="people-btn" class="hud-btn ghost hidden">PEOPLE</button>
       <button id="leave-room" class="hud-btn ghost hidden">◄ LEAVE ROOM</button>
       <button id="share-btn" class="hud-btn ghost">SHARE</button>
@@ -76,33 +86,23 @@
     <input id="chat-input" class="chat-input" placeholder="say something… (Enter)" maxlength="240" />
   </div>
 
-  <!-- Username claim modal -->
+  <!-- Username + avatar claim modal (first sign-in only) -->
   <div id="name-modal" class="overlay hidden">
     <div class="auth-card">
-      <h2>PICK A @HANDLE</h2>
-      <p class="auth-sub">This is how friends find you. 3–16 chars: letters, numbers, underscore.</p>
+      <h2>MAKE YOUR CHARACTER</h2>
+      <p class="auth-sub">Pick a @handle friends can find you by. 3–16 chars: letters, numbers, underscore.</p>
       <input id="name-input" class="auth-input" placeholder="@yourname" autocomplete="off" />
-      <button id="name-save" class="auth-provider">Claim it</button>
+      <div class="field-label">Avatar color</div>
+      <div id="avatar-colors" class="color-swatches big"></div>
+      <button id="name-save" class="auth-provider">Enter CRIBS</button>
       <p id="name-error" class="auth-error"></p>
     </div>
   </div>
 
-  <!-- Sign-in modal (only shown when the player chooses to go online) -->
-  <div id="auth-modal" class="overlay hidden">
-    <div class="auth-card">
-      <button id="auth-close" class="auth-close">×</button>
-      <h2>GO ONLINE</h2>
-      <p class="auth-sub">Building &amp; exploring is account-free. Sign in only to be visitable, add friends, and host live rooms.</p>
-      <button id="auth-google" class="auth-provider">Continue with Google</button>
-      <div class="auth-divider"><span>or</span></div>
-      <input id="auth-email" class="auth-input" type="email" placeholder="email" autocomplete="email" />
-      <input id="auth-pass" class="auth-input" type="password" placeholder="password" autocomplete="current-password" />
-      <div class="auth-row">
-        <button id="auth-signin" class="auth-provider small">Sign in</button>
-        <button id="auth-signup" class="auth-provider small ghost">Create account</button>
-      </div>
-      <p id="auth-error" class="auth-error"></p>
-    </div>
+  <!-- emote bar (in game) -->
+  <div id="emote-bar" class="hidden">
+    <button data-emote="wave">👋 Wave (Z)</button>
+    <button data-emote="dance">🕺 Dance (X)</button>
   </div>
 
   <!-- transient toast -->
@@ -118,6 +118,10 @@
       </div>
     </div>
     <div id="catalog" class="catalog"></div>
+    <div class="room-colors">
+      <div class="room-row"><span>Floor</span><span id="floor-swatches" class="color-swatches"></span></div>
+      <div class="room-row"><span>Walls</span><span id="wall-swatches" class="color-swatches"></span></div>
+    </div>
     <div class="builder-foot">
       <button id="save-btn" class="hud-btn">SAVE</button>
       <span id="save-status"></span>

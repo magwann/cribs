@@ -17,7 +17,6 @@ export function createUI(handlers) {
 
   const el = {
     title: $('title'),
-    start: $('start-btn'),
     hud: $('hud'),
     modePill: $('mode-pill'),
     buildToggle: $('build-toggle'),
@@ -32,8 +31,6 @@ export function createUI(handlers) {
     leaveBtn: $('leave-btn'),
     toast: $('toast'),
     accountBtn: $('account-btn'),
-    authModal: $('auth-modal'),
-    authClose: $('auth-close'),
     authGoogle: $('auth-google'),
     authEmail: $('auth-email'),
     authPass: $('auth-pass'),
@@ -59,8 +56,13 @@ export function createUI(handlers) {
     nameInput: $('name-input'),
     nameSave: $('name-save'),
     nameError: $('name-error'),
+    avatarColors: $('avatar-colors'),
+    emoteBar: $('emote-bar'),
+    floorSwatches: $('floor-swatches'),
+    wallSwatches: $('wall-swatches'),
   };
   const creds = () => ({ email: el.authEmail.value.trim(), pass: el.authPass.value });
+  let avatarColor = RECOLOR_SWATCHES[3]; // currently-selected avatar color
 
   // --- build catalog palette ---
   for (const item of CATALOG) {
@@ -71,17 +73,26 @@ export function createUI(handlers) {
     el.catalog.appendChild(btn);
   }
 
-  // build the recolor swatch row (shown when a recolorable item is selected)
-  for (const c of RECOLOR_SWATCHES) {
-    const s = document.createElement('button');
-    s.className = 'color-dot';
-    s.style.background = c;
-    s.addEventListener('click', () => handlers.onRecolor(c));
-    el.colorSwatches.appendChild(s);
-  }
+  // swatch-row builder used for recolor / avatar / floor / walls
+  const buildSwatches = (container, onPick, big) => {
+    for (const c of RECOLOR_SWATCHES) {
+      const s = document.createElement('button');
+      s.className = 'color-dot' + (big ? ' big' : '');
+      s.style.background = c;
+      s.addEventListener('click', () => onPick(c, s, container));
+      container.appendChild(s);
+    }
+  };
+  buildSwatches(el.colorSwatches, (c) => handlers.onRecolor(c));
+  buildSwatches(el.floorSwatches, (c) => handlers.onFloorColor(c));
+  buildSwatches(el.wallSwatches, (c) => handlers.onWallColor(c));
+  buildSwatches(el.avatarColors, (c, s, container) => {
+    avatarColor = c;
+    container.querySelectorAll('.color-dot').forEach((d) => d.classList.remove('sel'));
+    s.classList.add('sel');
+  }, true);
 
   // --- wire controls ---
-  el.start.addEventListener('click', () => { el.title.classList.add('hidden'); handlers.onStart(); });
   el.buildToggle.addEventListener('click', () => handlers.onToggleBuild());
   el.buildClose.addEventListener('click', () => handlers.onToggleBuild());
   el.viewToggle.addEventListener('click', () => handlers.onToggleView());
@@ -89,12 +100,17 @@ export function createUI(handlers) {
   el.shareBtn.addEventListener('click', () => handlers.onShare());
   el.leaveBtn.addEventListener('click', () => handlers.onLeave());
 
-  // auth
+  // auth (now on the title screen)
   el.accountBtn.addEventListener('click', () => handlers.onAccount());
-  el.authClose.addEventListener('click', () => el.authModal.classList.add('hidden'));
   el.authGoogle.addEventListener('click', () => handlers.onAuth('google'));
   el.authSignin.addEventListener('click', () => handlers.onAuth('signin', creds()));
   el.authSignup.addEventListener('click', () => handlers.onAuth('signup', creds()));
+  el.authPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') handlers.onAuth('signin', creds()); });
+
+  // emotes
+  el.emoteBar.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => handlers.onEmote(b.dataset.emote));
+  });
 
   // people / rooms / chat
   el.peopleBtn.addEventListener('click', () => el.people.classList.toggle('hidden'));
@@ -108,7 +124,7 @@ export function createUI(handlers) {
     const t = el.chatInput.value; el.chatInput.value = '';
     if (t.trim()) handlers.onSendChat(t);
   });
-  const claim = () => handlers.onClaimUsername(el.nameInput.value);
+  const claim = () => handlers.onClaimUsername(el.nameInput.value, avatarColor);
   el.nameSave.addEventListener('click', claim);
   el.nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') claim(); });
   el.objTools.querySelectorAll('button').forEach((b) => {
@@ -142,7 +158,18 @@ export function createUI(handlers) {
         el.modePill.textContent = 'EXPLORE';
       }
     },
-    showHUD() { el.hud.classList.remove('hidden'); },
+    enterGame() {
+      el.title.classList.add('hidden');
+      el.nameModal.classList.add('hidden');
+      el.hud.classList.remove('hidden');
+      el.emoteBar.classList.remove('hidden');
+    },
+    showLogin() {
+      el.title.classList.remove('hidden');
+      el.hud.classList.add('hidden');
+      el.emoteBar.classList.add('hidden');
+      el.people.classList.add('hidden');
+    },
     flashSave(text) {
       el.saveStatus.textContent = text;
       setTimeout(() => { el.saveStatus.textContent = ''; }, 2000);
@@ -153,19 +180,11 @@ export function createUI(handlers) {
       clearTimeout(el.toast._t);
       el.toast._t = setTimeout(() => el.toast.classList.add('hidden'), 2600);
     },
-    openAuth() { el.authError.textContent = ''; el.authModal.classList.remove('hidden'); },
-    closeAuth() { el.authModal.classList.add('hidden'); },
     setAuthError(msg) { el.authError.textContent = msg || ''; },
     setOnline(user, handle) {
-      if (user) {
-        el.accountBtn.textContent = `● ${handle ? '@' + handle : 'online'}`;
-        el.authModal.classList.add('hidden');
-        el.peopleBtn.classList.remove('hidden');
-      } else {
-        el.accountBtn.textContent = 'GO ONLINE';
-        el.peopleBtn.classList.add('hidden');
-        el.people.classList.add('hidden');
-      }
+      // Always-online model: the chip just shows who you are.
+      el.accountBtn.textContent = handle ? `● @${handle}` : '●';
+      el.peopleBtn.classList.toggle('hidden', !user);
     },
     openUsername(prefill) {
       el.nameError.textContent = '';

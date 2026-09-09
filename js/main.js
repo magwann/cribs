@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js';
+import { createWorld, ROOM_DEFAULTS } from './world.js';
 import { createPlayer } from './player.js';
 import { createBuilder } from './builder.js';
 import { createUI } from './ui.js';
@@ -13,67 +13,53 @@ import {
 import * as net from './net.js';
 
 // ---------------------------------------------------------------------------
-// MAIN — modules, mode state, render loop, and the online/room system.
-// Local-first: building/exploring/visiting need no account. Going online adds
-// presence, friend search, knock-to-enter live rooms, and chat.
+// MAIN — login-first and always online. You sign in on the title screen, claim
+// a @handle + avatar color, then you're in your crib and visible to friends.
 // ---------------------------------------------------------------------------
 
 const canvas = document.getElementById('game');
-const { renderer, scene, camera } = createWorld(canvas);
+const { renderer, scene, camera, setFloorColor, setWallColor } = createWorld(canvas);
 const player = createPlayer(scene, camera, canvas);
 const remotes = createRemotes(scene);
 
 let building = false;
-let visiting = false;   // in someone else's crib (read-only)
-let cribId = null;      // ?crib target for static visits
+let visiting = false;
 let myHandle = null;
-let roomHost = null;    // uid of the live room we're in (null when offline)
-let roomConn = null;    // { update, leave }
+let myColor = '#7cf0c8';
+let roomHost = null;
+let roomConn = null;
 const unsub = { players: null, chat: null, knocks: null, myKnock: null, friends: null, freq: null };
-let posAcc = 0;
-let lastChatTs = 0;       // only bubble messages newer than this
-let friendsCache = [];
-const activeTVs = new Set(); // powered-on TV screen meshes to animate
+let posAcc = 0, lastChatTs = 0, friendsCache = [];
+let roomFloor = ROOM_DEFAULTS.floor, roomWall = ROOM_DEFAULTS.wall;
+let currentEmote = null, emoteTs = 0;
+const activeTVs = new Set();
+let animatedNodes = [];
 
 // ---- top-down build view ----
-let topDown = false;
-let tdHeight = 15;
-function applyTopDown() {
-  camera.up.set(0, 0, -1);
-  camera.position.set(0, tdHeight, 0);
-  camera.lookAt(0, 0, 0);
-}
-function setView(td) {
-  topDown = td;
-  player.setCameraControl(!td);
-  if (td) applyTopDown();
-  else camera.up.set(0, 1, 0);
-  ui.setView(td);
-}
-canvas.addEventListener('wheel', (e) => {
-  if (!topDown) return;
-  e.preventDefault();
-  tdHeight = Math.max(8, Math.min(22, tdHeight + e.deltaY * 0.01));
-}, { passive: false });
+let topDown = false, tdHeight = 15;
+function applyTopDown() { camera.up.set(0, 0, -1); camera.position.set(0, tdHeight, 0); camera.lookAt(0, 0, 0); }
+function setView(td) { topDown = td; player.setCameraControl(!td); if (td) applyTopDown(); else camera.up.set(0, 1, 0); ui.setView(td); }
+canvas.addEventListener('wheel', (e) => { if (!topDown) return; e.preventDefault(); tdHeight = Math.max(8, Math.min(22, tdHeight + e.deltaY * 0.01)); }, { passive: false });
 
 const ui = createUI({
-  onStart, onToggleBuild: toggleBuild, onToggleView: toggleView,
+  onToggleBuild: toggleBuild, onToggleView: toggleView,
   onPick: (id) => builder.arm(id),
-  onSave, onShare, onLeave, onAccount, onAuth,
-  onClaimUsername, onSearch, onKnock, onRespondKnock, onLeaveRoom, onSendChat,
-  onRecolor: (color) => builder.setSelectedColor(color),
+  onSave, onShare, onLeave, onAccount, onAuth, onClaimUsername,
+  onSearch, onKnock, onRespondKnock, onLeaveRoom, onSendChat,
+  onRecolor: (c) => builder.setSelectedColor(c),
+  onFloorColor: (c) => { roomFloor = c; setFloorColor(c); },
+  onWallColor: (c) => { roomWall = c; setWallColor(c); },
+  onEmote: doEmote,
   onAddFriend, onAcceptFriend, onDeclineFriend,
-  onObjAction: (act) => {
-    if (act === 'rotate') builder.rotateSelected();
-    if (act === 'delete') builder.deleteSelected();
-  },
+  onObjAction: (act) => { if (act === 'rotate') builder.rotateSelected(); if (act === 'delete') builder.deleteSelected(); },
 });
 
 const builder = createBuilder(scene, camera, canvas, {
   onSelect: (item) => ui.setSelected(!!item, !!(item && CATALOG_BY_ID[item.id] && CATALOG_BY_ID[item.id].recolor)),
+  onChange: refreshAnimated,
 });
 
-// ---- click-a-seat-to-sit (explore mode only) ----
+// ---- explore-mode click: sit / toggle TV ----
 let downX = 0, downY = 0;
 canvas.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
 canvas.addEventListener('pointerup', (e) => {
@@ -85,36 +71,15 @@ canvas.addEventListener('pointerup', (e) => {
   if (cat && cat.tv) toggleTV(item);
   else if (cat && cat.sit) sitOn(item, cat);
 });
-
 let tvOffset = 0;
 function toggleTV(item) {
   const screen = item.group.getObjectByName('tv-screen');
   if (!screen) return;
-  if (!screen.userData._base) {
-    screen.userData._base = {
-      color: screen.material.color.clone(),
-      emissive: screen.material.emissive.clone(),
-    };
-  }
+  if (!screen.userData._base) screen.userData._base = { color: screen.material.color.clone(), emissive: screen.material.emissive.clone() };
   screen.userData.on = !screen.userData.on;
-  if (screen.userData.on) {
-    screen.userData.offset = (tvOffset += 0.17);
-    activeTVs.add(screen);
-    ui.toast('TV on');
-  } else {
-    activeTVs.delete(screen);
-    screen.material.color.copy(screen.userData._base.color);
-    screen.material.emissive.copy(screen.userData._base.emissive);
-  }
+  if (screen.userData.on) { screen.userData.offset = (tvOffset += 0.17); activeTVs.add(screen); ui.toast('TV on'); }
+  else { activeTVs.delete(screen); screen.material.color.copy(screen.userData._base.color); screen.material.emissive.copy(screen.userData._base.emissive); }
 }
-function animateTVs(elapsed) {
-  for (const s of activeTVs) {
-    const o = s.userData.offset || 0;
-    // shifting colored glow + slight flicker = "something's playing"
-    s.material.emissive.setHSL((elapsed * 0.12 + o) % 1, 0.85, 0.42 + 0.08 * Math.sin(elapsed * 22 + o));
-  }
-}
-
 function sitOn(item, cat) {
   item.group.updateMatrixWorld();
   let best = null, bestD = Infinity;
@@ -126,184 +91,150 @@ function sitOn(item, cat) {
   if (best) { player.sit(best.w, best.yaw); ui.toast('sitting — press W to stand'); }
 }
 
-// ---- boot (no auth) ----
-initBoot();
-async function initBoot() {
-  const params = new URLSearchParams(location.search);
-  cribId = params.get('crib');
-  visiting = !!cribId;
-  let data = null;
-  if (visiting) {
-    try { data = await loadCribById(cribId); } catch (e) { console.error(e); }
-    if (!data) ui.toast('that crib could not be found');
-  } else {
-    data = loadLocal();
+// collect disco/lava nodes to animate each frame
+function refreshAnimated() {
+  animatedNodes = [];
+  for (const { group } of builder.getGroups())
+    group.traverse((o) => { if (o.userData && o.userData.anim) animatedNodes.push({ node: o, type: o.userData.anim, base: o.position.y }); });
+}
+function animate(elapsed) {
+  for (const s of activeTVs) s.material.emissive.setHSL((elapsed * 0.12 + (s.userData.offset || 0)) % 1, 0.85, 0.42 + 0.08 * Math.sin(elapsed * 22));
+  for (const a of animatedNodes) {
+    if (a.type === 'discoBall') a.node.rotation.y = elapsed * 1.6;
+    else if (a.type === 'discoLight') a.node.color.setHSL((elapsed * 0.35) % 1, 1, 0.6);
+    else if (a.type === 'lava') { a.node.position.y = a.base + Math.sin(elapsed * 1.5) * 0.12; a.node.material.emissive.setHSL((elapsed * 0.1) % 1, 0.8, 0.5); }
   }
-  if (data && data.items) builder.loadItems(data.items);
-  ui.setVisiting(visiting, data && data.name);
 }
 
-// ---- auth / online lifecycle ----
+// ---- auth / session lifecycle ----
 onUser(async (user) => {
   ui.setOnline(user, myHandle);
-  if (!user) { teardownOnline(); return; }
+  if (!user) { teardownOnline(); ui.showLogin(); return; }
   try {
     const prof = await net.getProfile(user.uid);
-    if (prof && prof.handle) { myHandle = prof.handle; goOnline(); }
+    if (prof && prof.handle) { myHandle = prof.handle; myColor = prof.avatarColor || myColor; beginSession(); }
     else { ui.openUsername(suggestHandle(user)); }
-  } catch (e) { console.error('profile load failed', e); ui.toast('could not load your profile'); }
+  } catch (e) { console.error('profile load failed', e); ui.setAuthError('could not load your profile'); }
 });
 
-async function onClaimUsername(value) {
-  ui.setUsernameError('');
+async function onAuth(kind, creds) {
+  ui.setAuthError('');
   try {
-    myHandle = await net.claimUsername(value);
-    ui.closeUsername();
-    goOnline();
-  } catch (e) { ui.setUsernameError(e.message || 'could not claim that handle'); }
+    if (kind === 'google') await signInGoogle();
+    else if (kind === 'signin') await signInEmail(creds.email, creds.pass);
+    else if (kind === 'signup') await signUpEmail(creds.email, creds.pass);
+  } catch (e) { console.error('auth error', e); ui.setAuthError(prettyAuthError(e)); }
 }
 
-async function goOnline() {
+async function onClaimUsername(value, color) {
+  ui.setUsernameError('');
+  try { myHandle = await net.claimUsername(value, color); myColor = color || myColor; beginSession(); }
+  catch (e) { ui.setUsernameError(e.message || 'could not claim that handle'); }
+}
+
+async function beginSession() {
+  ui.enterGame();
   ui.setOnline(getUser(), myHandle);
+  player.setColor(myColor);
   net.goOnlinePresence(myHandle);
-  try { await saveMyCrib(builder.getItemsData()); ui.toast('you’re online — crib published ✓'); }
-  catch (e) { console.error('publish failed', e); }
 
   if (unsub.knocks) unsub.knocks();
   let known = 0;
   unsub.knocks = net.listenIncomingKnocks((list) => {
     ui.setKnocks(list);
     const pending = list.filter((k) => k.status === 'pending');
-    if (pending.length > known) ui.toast(`@${pending[pending.length - 1].handle} wants to enter — see PEOPLE`);
+    if (pending.length > known) ui.toast(`@${pending[pending.length - 1].handle} wants in — see PEOPLE`);
     known = pending.length;
   });
-
-  // friends list + incoming friend requests
   if (unsub.friends) unsub.friends();
   unsub.friends = net.listenFriends((list) => { friendsCache = list; renderFriends(); });
   if (unsub.freq) unsub.freq();
   unsub.freq = net.listenFriendRequests((list) => ui.setFriendRequests(list));
 
-  if (!visiting) enterRoom(getUid()); // host your own room
-}
-
-async function renderFriends() {
-  const withOnline = await Promise.all((friendsCache || []).map(async (f) => ({
-    ...f, online: await net.isOnline(f.uid).catch(() => false),
-  })));
-  ui.setFriends(withOnline);
-}
-
-function onAddFriend(uid, handle) {
-  net.sendFriendRequest(uid, myHandle).then(() => ui.toast(`friend request sent to @${handle}`)).catch((e) => { console.error(e); ui.toast('could not send request'); });
-}
-function onAcceptFriend(uid, handle) {
-  net.acceptFriend(uid, handle, myHandle).then(() => ui.toast(`you and @${handle} are friends`)).catch((e) => { console.error(e); ui.toast('could not accept'); });
-}
-function onDeclineFriend(uid) {
-  net.declineFriend(uid).catch((e) => console.error(e));
+  const target = new URLSearchParams(location.search).get('crib');
+  enterRoom(target && target !== getUid() ? target : getUid());
 }
 
 function teardownOnline() {
   myHandle = null;
   teardownRoom();
-  for (const k of ['knocks', 'myKnock', 'friends', 'freq']) {
-    if (unsub[k]) { unsub[k](); unsub[k] = null; }
-  }
-  friendsCache = [];
-  roomHost = null;
-  ui.setRoomMode(false, false);
+  for (const k of ['knocks', 'myKnock', 'friends', 'freq']) if (unsub[k]) { unsub[k](); unsub[k] = null; }
+  friendsCache = []; roomHost = null;
 }
+
+async function renderFriends() {
+  const withOnline = await Promise.all((friendsCache || []).map(async (f) => ({ ...f, online: await net.isOnline(f.uid).catch(() => false) })));
+  ui.setFriends(withOnline);
+}
+function onAddFriend(uid, handle) { net.sendFriendRequest(uid, myHandle).then(() => ui.toast(`friend request sent to @${handle}`)).catch((e) => { console.error(e); ui.toast('could not send request'); }); }
+function onAcceptFriend(uid, handle) { net.acceptFriend(uid, handle, myHandle).then(() => ui.toast(`you and @${handle} are friends`)).catch((e) => { console.error(e); ui.toast('could not accept'); }); }
+function onDeclineFriend(uid) { net.declineFriend(uid).catch((e) => console.error(e)); }
 
 // ---- rooms ----
 async function enterRoom(hostUid) {
   teardownRoom();
   roomHost = hostUid;
   const isVisiting = hostUid !== getUid();
-  if (isVisiting) {
-    let data = null;
-    try { data = await loadCribById(hostUid); } catch (e) { console.error(e); }
-    if (data && data.items) builder.loadItems(data.items); else ui.toast('their crib is empty');
-    visiting = true;
-    ui.setVisiting(true, data && data.name);
-    player.stand();
-  } else {
-    visiting = false;
-    ui.setVisiting(false, null);
-  }
-  lastChatTs = Date.now(); // don't bubble room history on join
+  let data = null;
+  try { data = await loadCribById(hostUid); } catch (e) { console.error(e); }
+  if (!data && !isVisiting) data = loadLocal();
+  builder.loadItems(data && data.items ? data.items : []);
+  const room = (data && data.room) || {};
+  setFloorColor(room.floor || ROOM_DEFAULTS.floor);
+  setWallColor(room.wall || ROOM_DEFAULTS.wall);
+  if (!isVisiting) { roomFloor = room.floor || ROOM_DEFAULTS.floor; roomWall = room.wall || ROOM_DEFAULTS.wall; }
+  visiting = isVisiting;
+  ui.setVisiting(isVisiting, data && data.name);
+  if (isVisiting) player.stand();
+
+  lastChatTs = Date.now();
   roomConn = net.joinRoom(hostUid, myHandle);
-  unsub.players = net.listenRoomPlayers(hostUid, (players) => {
-    remotes.sync(players, getUid());
-    ui.setRoster(players, getUid());
-  });
+  unsub.players = net.listenRoomPlayers(hostUid, (players) => { remotes.sync(players, getUid()); ui.setRoster(players, getUid()); });
   unsub.chat = net.listenChat(hostUid, (msgs) => {
     ui.setChat(msgs);
     for (const m of msgs) {
       if (m.ts <= lastChatTs || !m.uid) continue;
-      if (m.uid === getUid()) player.showBubble(m.text);
-      else remotes.showBubble(m.uid, m.text);
+      if (m.uid === getUid()) player.showBubble(m.text); else remotes.showBubble(m.uid, m.text);
     }
     if (msgs.length) lastChatTs = Math.max(lastChatTs, msgs[msgs.length - 1].ts);
   });
   ui.setRoomMode(true, isVisiting);
 }
-
 function teardownRoom() {
   if (roomConn) { roomConn.leave(); roomConn = null; }
   if (unsub.players) { unsub.players(); unsub.players = null; }
   if (unsub.chat) { unsub.chat(); unsub.chat = null; }
   remotes.clear();
 }
-
-function onLeaveRoom() {
-  const local = loadLocal();
-  builder.loadItems(local && local.items ? local.items : []);
-  enterRoom(getUid());
-}
+function onLeaveRoom() { enterRoom(getUid()); }
 
 async function onSearch(value) {
   const res = await net.lookupHandle(value);
   if (!res) { ui.setSearchResults([]); return; }
-  let online = false;
-  try { online = await net.isOnline(res.uid); } catch {}
+  let online = false; try { online = await net.isOnline(res.uid); } catch {}
   ui.setSearchResults([{ handle: res.handle, uid: res.uid, online, self: res.uid === getUid() }]);
 }
-
 async function onKnock(hostUid, handle) {
-  if (!getUid()) { ui.toast('go online first'); ui.openAuth(); return; }
   try { await net.knock(hostUid, myHandle); } catch (e) { console.error(e); ui.toast('knock failed'); return; }
   ui.toast(`knock sent to @${handle}…`);
   if (unsub.myKnock) unsub.myKnock();
   unsub.myKnock = net.listenMyKnock(hostUid, (k) => {
     if (!k) return;
-    if (k.status === 'approved') {
-      unsub.myKnock(); unsub.myKnock = null; net.clearMyKnock(hostUid);
-      ui.toast(`@${handle} let you in!`);
-      enterRoom(hostUid);
-    } else if (k.status === 'denied') {
-      unsub.myKnock(); unsub.myKnock = null; net.clearMyKnock(hostUid);
-      ui.toast(`@${handle} said not right now`);
-    }
+    if (k.status === 'approved') { unsub.myKnock(); unsub.myKnock = null; net.clearMyKnock(hostUid); ui.toast(`@${handle} let you in!`); enterRoom(hostUid); }
+    else if (k.status === 'denied') { unsub.myKnock(); unsub.myKnock = null; net.clearMyKnock(hostUid); ui.toast(`@${handle} said not right now`); }
   });
 }
+function onRespondKnock(visitorUid, approve) { net.respondKnock(visitorUid, approve).catch((e) => console.error(e)); }
+function onSendChat(text) { if (roomHost && myHandle) net.sendChat(roomHost, myHandle, text); }
 
-function onRespondKnock(visitorUid, approve) {
-  net.respondKnock(visitorUid, approve).catch((e) => console.error(e));
-}
-
-function onSendChat(text) {
-  if (roomHost && myHandle) net.sendChat(roomHost, myHandle, text);
-}
+function doEmote(name) { player.emote(name); currentEmote = name; emoteTs = Date.now(); }
 
 function suggestHandle(u) {
   const base = (u.displayName || u.email || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16);
   return base.length >= 3 ? base : '';
 }
 
-// ---- local modes ----
-function onStart() { ui.showHUD(); }
-
+// ---- build / crib ----
 function toggleBuild() {
   if (visiting) { ui.toast("this isn't your crib"); return; }
   player.stand();
@@ -318,57 +249,44 @@ function toggleView() { if (building) setView(!topDown); }
 async function onSave() {
   const items = builder.getItemsData();
   saveLocal(items);
-  if (getUid()) {
-    try { await saveMyCrib(items); ui.flashSave('saved to cloud ✓'); }
-    catch (e) { console.error(e); ui.flashSave('saved locally (cloud error)'); }
-  } else ui.flashSave('saved locally');
+  try { await saveMyCrib(items, 'my crib', { floor: roomFloor, wall: roomWall }); ui.flashSave('saved ✓'); }
+  catch (e) { console.error(e); ui.flashSave('save error'); }
 }
 
 function onShare() {
-  if (visiting && cribId) return share(cribId);
-  const uid = getUid();
-  if (!uid) { ui.toast('go online to share your crib'); ui.openAuth(); return; }
-  share(uid);
-}
-function share(id) {
+  const id = visiting ? roomHost : getUid();
+  if (!id) return;
   const url = `${location.origin}${location.pathname}?crib=${id}`;
   if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => ui.toast('crib link copied ✓'), () => ui.toast(url));
   else ui.toast(url);
 }
 function onLeave() { location.href = `${location.origin}${location.pathname}`; }
+function onAccount() { if (confirm('Sign out?')) logOut(); }
 
-function onAccount() {
-  if (getUid()) { if (confirm('Sign out and go offline?')) logOut(); }
-  else ui.openAuth();
-}
-async function onAuth(kind, creds) {
-  ui.setAuthError('');
-  try {
-    if (kind === 'google') await signInGoogle();
-    else if (kind === 'signin') await signInEmail(creds.email, creds.pass);
-    else if (kind === 'signup') await signUpEmail(creds.email, creds.pass);
-  } catch (e) { console.error('auth error', e); ui.setAuthError(prettyAuthError(e)); }
-}
 function prettyAuthError(e) {
   const c = (e && e.code) || '';
   if (c.includes('popup-closed')) return 'sign-in cancelled';
   if (c.includes('operation-not-allowed')) return 'that provider isn’t enabled yet';
   if (c.includes('invalid-credential') || c.includes('wrong-password')) return 'wrong email or password';
-  if (c.includes('email-already-in-use')) return 'that email already has an account';
+  if (c.includes('email-already-in-use')) return 'that email already has an account — log in instead';
   if (c.includes('weak-password')) return 'password too short (min 6)';
   if (c.includes('invalid-email')) return 'that email looks invalid';
   return (e && e.message) || 'sign-in failed';
 }
 
-// keyboard shortcuts
+// keyboard
 window.addEventListener('keydown', (e) => {
   if (e.target && /input|textarea/i.test(e.target.tagName)) return;
   const k = e.key.toLowerCase();
-  if (k === 'b') toggleBuild();
-  if (!building) return;
-  if (k === 'v') toggleView();
-  if (k === 'r') builder.rotateSelected();
-  if (k === 'delete' || k === 'backspace') builder.deleteSelected();
+  if (k === 'b') return toggleBuild();
+  if (building) {
+    if (k === 'v') toggleView();
+    if (k === 'r') builder.rotateSelected();
+    if (k === 'delete' || k === 'backspace') builder.deleteSelected();
+    return;
+  }
+  if (k === 'z') doEmote('wave');
+  if (k === 'x') doEmote('dance');
 });
 
 // ---- render loop ----
@@ -377,23 +295,15 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   player.update(dt);
   remotes.update(dt);
-  if (activeTVs.size) animateTVs(clock.getElapsedTime());
+  animate(clock.getElapsedTime());
   if (topDown) applyTopDown();
-
-  // stream my position to the room a few times a second
   if (roomConn) {
     posAcc += dt;
     if (posAcc >= 0.12) {
       posAcc = 0;
-      roomConn.update({
-        x: player.avatar.position.x,
-        z: player.avatar.position.z,
-        ry: player.avatar.rotation.y,
-        sitting: player.isSitting(),
-      });
+      roomConn.update({ x: player.avatar.position.x, z: player.avatar.position.z, ry: player.avatar.rotation.y, sitting: player.isSitting(), color: myColor, emote: currentEmote, emoteTs });
     }
   }
-
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }

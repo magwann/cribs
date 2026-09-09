@@ -56,8 +56,14 @@ export function createWorld(canvas) {
   }
   window.addEventListener('resize', onResize);
 
-  return { renderer, scene, camera, room };
+  const setFloorColor = (c) => { if (c) room.userData.floorMat.color.set(c); };
+  const setWallColor = (c) => { if (c) room.userData.wallMat.color.set(c); };
+
+  return { renderer, scene, camera, room, setFloorColor, setWallColor };
 }
+
+// Defaults used when a crib has no saved room colors.
+export const ROOM_DEFAULTS = { floor: '#6b5844', wall: '#8a8fa5' };
 
 function buildRoom() {
   const g = new THREE.Group();
@@ -95,5 +101,8 @@ function buildRoom() {
   win.position.set(0, 2.2, -d / 2 + 0.02);
   g.add(win);
 
+  // exposed so the room can be recolored (crib customization)
+  g.userData.floorMat = floorMat;
+  g.userData.wallMat = wallMat;
   return g;
 }

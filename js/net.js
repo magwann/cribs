@@ -39,7 +39,7 @@ export async function getProfile(uid) {
 }
 
 // Claim a globally-unique @handle for the current user (transactional).
-export async function claimUsername(rawHandle, cribName = 'my crib') {
+export async function claimUsername(rawHandle, avatarColor = '#7cf0c8') {
   const uid = getUid();
   if (!uid) throw new Error('not online');
   const handle = normalizeHandle(rawHandle);
@@ -52,7 +52,7 @@ export async function claimUsername(rawHandle, cribName = 'my crib') {
       throw new Error('that handle is taken');
     }
     tx.set(uref, { uid });
-    tx.set(doc(db, 'users', uid), { handle, cribName, updatedAt: serverTimestamp() });
+    tx.set(doc(db, 'users', uid), { handle, avatarColor, updatedAt: serverTimestamp() }, { merge: true });
   });
   return handle;
 }

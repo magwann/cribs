@@ -14,7 +14,8 @@ import { ROOM } from './world.js';
 // Items serialize as { id, x, y, z, rot, color }.
 // ---------------------------------------------------------------------------
 
-export function createBuilder(scene, camera, canvas, { onSelect } = {}) {
+export function createBuilder(scene, camera, canvas, { onSelect, onChange } = {}) {
+  const changed = () => onChange && onChange();
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const items = [];              // { id, group, color }
@@ -97,6 +98,7 @@ export function createBuilder(scene, camera, canvas, { onSelect } = {}) {
     items.push(item);
     clearGhost();
     select(item);
+    changed();
   }
 
   // ---- selection ----
@@ -139,6 +141,7 @@ export function createBuilder(scene, camera, canvas, { onSelect } = {}) {
     selected.group = ng;
     selected.color = color;
     setTint(selected, true);
+    changed();
   }
 
   function deleteSelected() {
@@ -150,6 +153,7 @@ export function createBuilder(scene, camera, canvas, { onSelect } = {}) {
     selected = null;
     setTint(gone, false);
     onSelect && onSelect(null);
+    changed();
   }
 
   // ---- pointer handling (only while build mode is active) ----
@@ -195,6 +199,7 @@ export function createBuilder(scene, camera, canvas, { onSelect } = {}) {
     setSelectedColor,
     deleteSelected,
     getSelected: () => selected,
+    getGroups: () => items.map((it) => ({ id: it.id, group: it.group })),
     pickItemAt: (clientX, clientY) => pickItem(clientX, clientY),
 
     getItemsData() {
@@ -220,6 +225,7 @@ export function createBuilder(scene, camera, canvas, { onSelect } = {}) {
         scene.add(group);
         items.push({ id: d.id, group, color: d.color || null });
       }
+      changed();
     },
   };
 }

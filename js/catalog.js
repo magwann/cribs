@@ -60,12 +60,12 @@ export const CATALOG = [
     id: 'table',
     label: 'Table',
     swatch: '#9a6a3a',
-    build() {
+    recolor: true,
+    build(color = '#9a6a3a') {
       const g = new THREE.Group();
-      const wood = '#9a6a3a';
-      g.add(box(1.2, 0.1, 0.8, wood, 0, 0.7, 0));               // top
+      g.add(box(1.2, 0.1, 0.8, color, 0, 0.7, 0));              // top
       for (const [x, z] of [[-0.5, -0.3], [0.5, -0.3], [-0.5, 0.3], [0.5, 0.3]])
-        g.add(box(0.08, 0.7, 0.08, '#7a5028', x, 0.35, z));
+        g.add(box(0.08, 0.7, 0.08, shade(color, -0.12), x, 0.35, z));
       return g;
     },
   },
@@ -175,6 +175,92 @@ export const CATALOG = [
       g.add(box(0.4, 1.0, 0.4, '#222', 0, 0.5, 0));
       const woofer = cyl(0.13, 0.13, 0.05, '#444', 0, 0.35, 0.2, 10); woofer.rotation.x = Math.PI / 2; g.add(woofer);
       const tweeter = cyl(0.06, 0.06, 0.05, '#666', 0, 0.75, 0.2, 10); tweeter.rotation.x = Math.PI / 2; g.add(tweeter);
+      return g;
+    },
+  },
+  {
+    id: 'stool', label: 'Stool', swatch: '#c0392b', recolor: true,
+    sit: [{ x: 0, y: 0.55, z: 0, yaw: 0 }],
+    build(color = '#c0392b') {
+      const g = new THREE.Group();
+      g.add(cyl(0.22, 0.22, 0.1, color, 0, 0.55, 0, 12));
+      for (let a = 0; a < 3; a++) {
+        const ang = (a / 3) * Math.PI * 2;
+        g.add(box(0.05, 0.55, 0.05, '#333', Math.sin(ang) * 0.15, 0.27, Math.cos(ang) * 0.15));
+      }
+      return g;
+    },
+  },
+  {
+    id: 'beanbag', label: 'Bean Bag', swatch: '#8e44ad', recolor: true,
+    sit: [{ x: 0, y: 0.35, z: 0, yaw: 0 }],
+    build(color = '#8e44ad') {
+      const g = new THREE.Group();
+      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 1), mat(color));
+      b.scale.y = 0.7; b.position.y = 0.35; b.castShadow = true; g.add(b);
+      return g;
+    },
+  },
+  {
+    id: 'coffee', label: 'Coffee Table', swatch: '#6b4a34', recolor: true,
+    build(color = '#6b4a34') {
+      const g = new THREE.Group();
+      g.add(box(1.0, 0.08, 0.6, color, 0, 0.35, 0));
+      for (const [x, z] of [[-0.42, -0.22], [0.42, -0.22], [-0.42, 0.22], [0.42, 0.22]])
+        g.add(box(0.06, 0.35, 0.06, shade(color, -0.1), x, 0.17, z));
+      return g;
+    },
+  },
+  {
+    id: 'desk', label: 'Desk', swatch: '#8a5a34', recolor: true,
+    build(color = '#8a5a34') {
+      const g = new THREE.Group();
+      g.add(box(1.3, 0.1, 0.7, color, 0, 0.75, 0));
+      g.add(box(0.5, 0.7, 0.6, shade(color, -0.08), 0.35, 0.375, 0));
+      for (const z of [-0.28, 0.28]) g.add(box(0.06, 0.75, 0.06, shade(color, -0.15), -0.58, 0.375, z));
+      return g;
+    },
+  },
+  {
+    id: 'arcade', label: 'Arcade', swatch: '#2a2a3a', tv: true,
+    build() {
+      const g = new THREE.Group();
+      g.add(box(0.7, 1.6, 0.6, '#2a2a3a', 0, 0.8, 0));
+      const screen = box(0.55, 0.45, 0.05, '#0a1a2a', 0, 1.18, 0.29);
+      screen.name = 'tv-screen'; screen.material.emissive = new THREE.Color('#08131f'); g.add(screen);
+      g.add(box(0.6, 0.1, 0.3, '#c0392b', 0, 0.78, 0.32)); // control panel
+      g.add(box(0.7, 0.25, 0.05, '#f0b429', 0, 1.5, 0.3));  // marquee
+      return g;
+    },
+  },
+  {
+    id: 'disco', label: 'Disco Ball', swatch: '#c0c8d8',
+    build() {
+      const g = new THREE.Group();
+      g.add(cyl(0.015, 0.015, 0.5, '#444', 0, 1.75, 0)); // hang cord
+      const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), mat('#c8d0e0'));
+      ball.position.y = 1.35; ball.castShadow = true;
+      ball.userData.anim = 'discoBall';
+      g.add(ball);
+      const light = new THREE.PointLight('#ffffff', 10, 9, 2);
+      light.position.set(0, 1.35, 0);
+      light.userData.anim = 'discoLight';
+      g.add(light);
+      return g;
+    },
+  },
+  {
+    id: 'lava', label: 'Lava Lamp', swatch: '#ff5c8a', recolor: true,
+    build(color = '#ff5c8a') {
+      const g = new THREE.Group();
+      g.add(cyl(0.12, 0.16, 0.1, '#333', 0, 0.05, 0));
+      g.add(cyl(0.1, 0.14, 0.7, '#20102a', 0, 0.45, 0, 10));
+      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 0), mat(color));
+      blob.material.emissive = new THREE.Color(color);
+      blob.position.y = 0.4;
+      blob.userData.anim = 'lava';
+      g.add(blob);
+      g.add(cyl(0.1, 0.1, 0.08, '#333', 0, 0.82, 0));
       return g;
     },
   },

@@ -41,6 +41,30 @@ export function createPlayer(scene, camera, canvas) {
     avatar.position.y = 0;
   }
 
+  function emote(name) { state.emote = name; state.emoteT = 0; }
+  function setColor(hex) {
+    const bodyMesh = avatar.getObjectByName('body');
+    if (bodyMesh && hex) bodyMesh.material.color.set(hex);
+  }
+  function updateEmote(dt) {
+    if (!state.emote) return;
+    state.emoteT += dt;
+    const t = state.emoteT;
+    if (state.emote === 'dance') {
+      if (!state.sitting) avatar.position.y = Math.abs(Math.sin(t * 9)) * 0.18;
+      avatar.rotation.y += dt * 6;
+      if (t > 4) endEmote();
+    } else if (state.emote === 'wave') {
+      avatar.rotation.z = Math.sin(t * 11) * 0.25;
+      if (t > 1.6) endEmote();
+    }
+  }
+  function endEmote() {
+    avatar.rotation.z = 0;
+    if (!state.sitting) avatar.position.y = 0;
+    state.emote = null;
+  }
+
   // ---- Input ----
   window.addEventListener('keydown', (e) => {
     state.keys[e.key.toLowerCase()] = true;
@@ -96,6 +120,8 @@ export function createPlayer(scene, camera, canvas) {
       avatar.position.z = Math.max(-mz, Math.min(mz, avatar.position.z));
     }
 
+    updateEmote(dt);
+
     // Camera follows avatar on an orbit — unless something else (top-down
     // build view) has taken control of the camera.
     if (!state.cameraControl) return;
@@ -114,6 +140,8 @@ export function createPlayer(scene, camera, canvas) {
     setCameraControl: (v) => { state.cameraControl = v; },
     sit,
     stand,
+    emote,
+    setColor,
     isSitting: () => state.sitting,
     showBubble: (text) => attachBubble(avatar, text, (state.bubble ||= {})),
     getYaw: () => state.yaw,
@@ -131,6 +159,7 @@ export function buildAvatar(bodyColor = 0x7cf0c8) {
   };
   const body = mk(new THREE.CapsuleGeometry(0.25, 0.5, 2, 6), bodyColor);
   body.position.y = 0.75;
+  body.name = 'body'; // so the color can be changed later
   g.add(body);
   const head = mk(new THREE.IcosahedronGeometry(0.22, 0), 0xffd8a8);
   head.position.y = 1.4;
