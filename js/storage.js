@@ -20,8 +20,10 @@ export function saveCrib(items) {
     items: items.map((it) => ({
       id: it.id,
       x: round(it.x),
+      y: round(it.y || 0),
       z: round(it.z),
       rot: round(it.rot),
+      color: it.color || null,
     })),
   };
   localStorage.setItem(KEY, JSON.stringify(doc));

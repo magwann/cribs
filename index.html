@@ -56,6 +56,12 @@
       </div>
       <div id="friend-results" class="results"></div>
 
+      <div class="panel-label">Friends</div>
+      <div id="friends-list" class="results"><div class="muted">no friends yet</div></div>
+
+      <div class="panel-label">Friend requests</div>
+      <div id="req-list" class="results"><div class="muted">none</div></div>
+
       <div class="panel-label">Requests to enter your crib</div>
       <div id="knock-list" class="results"><div class="muted">none yet</div></div>
 
@@ -88,7 +94,6 @@
       <h2>GO ONLINE</h2>
       <p class="auth-sub">Building &amp; exploring is account-free. Sign in only to be visitable, add friends, and host live rooms.</p>
       <button id="auth-google" class="auth-provider">Continue with Google</button>
-      <button id="auth-apple" class="auth-provider">Continue with Apple</button>
       <div class="auth-divider"><span>or</span></div>
       <input id="auth-email" class="auth-input" type="email" placeholder="email" autocomplete="email" />
       <input id="auth-pass" class="auth-input" type="password" placeholder="password" autocomplete="current-password" />
@@ -123,7 +128,8 @@
   <div id="obj-tools" class="hidden">
     <button data-act="rotate">⟳ Rotate (R)</button>
     <button data-act="delete">🗑 Delete (⌫)</button>
-    <span class="tip">click floor to place · drag item to move</span>
+    <span id="color-swatches" class="color-swatches hidden"></span>
+    <span class="tip">stack items on surfaces · drag to move</span>
   </div>
 
   <script type="module" src="js/main.js"></script>

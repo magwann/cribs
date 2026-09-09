@@ -1,4 +1,4 @@
-import { CATALOG } from './catalog.js';
+import { CATALOG, RECOLOR_SWATCHES } from './catalog.js';
 
 // ---------------------------------------------------------------------------
 // UI
@@ -35,7 +35,6 @@ export function createUI(handlers) {
     authModal: $('auth-modal'),
     authClose: $('auth-close'),
     authGoogle: $('auth-google'),
-    authApple: $('auth-apple'),
     authEmail: $('auth-email'),
     authPass: $('auth-pass'),
     authSignin: $('auth-signin'),
@@ -50,6 +49,9 @@ export function createUI(handlers) {
     friendResults: $('friend-results'),
     knockList: $('knock-list'),
     roomRoster: $('room-roster'),
+    friendsList: $('friends-list'),
+    reqList: $('req-list'),
+    colorSwatches: $('color-swatches'),
     chat: $('chat'),
     chatLog: $('chat-log'),
     chatInput: $('chat-input'),
@@ -69,6 +71,15 @@ export function createUI(handlers) {
     el.catalog.appendChild(btn);
   }
 
+  // build the recolor swatch row (shown when a recolorable item is selected)
+  for (const c of RECOLOR_SWATCHES) {
+    const s = document.createElement('button');
+    s.className = 'color-dot';
+    s.style.background = c;
+    s.addEventListener('click', () => handlers.onRecolor(c));
+    el.colorSwatches.appendChild(s);
+  }
+
   // --- wire controls ---
   el.start.addEventListener('click', () => { el.title.classList.add('hidden'); handlers.onStart(); });
   el.buildToggle.addEventListener('click', () => handlers.onToggleBuild());
@@ -82,7 +93,6 @@ export function createUI(handlers) {
   el.accountBtn.addEventListener('click', () => handlers.onAccount());
   el.authClose.addEventListener('click', () => el.authModal.classList.add('hidden'));
   el.authGoogle.addEventListener('click', () => handlers.onAuth('google'));
-  el.authApple.addEventListener('click', () => handlers.onAuth('apple'));
   el.authSignin.addEventListener('click', () => handlers.onAuth('signin', creds()));
   el.authSignup.addEventListener('click', () => handlers.onAuth('signup', creds()));
 
@@ -112,8 +122,9 @@ export function createUI(handlers) {
       el.builder.classList.toggle('hidden', !building);
       if (!building) el.objTools.classList.add('hidden');
     },
-    setSelected(has) {
+    setSelected(has, recolorable) {
       el.objTools.classList.toggle('hidden', !has);
+      el.colorSwatches.classList.toggle('hidden', !(has && recolorable));
     },
     setView(topDown) {
       // label shows the view you'll switch TO
@@ -171,12 +182,53 @@ export function createUI(handlers) {
       for (const r of list) {
         const row = document.createElement('div');
         row.className = 'person';
-        const btn = r.self ? '<span class="muted">you</span>'
-          : `<button data-uid="${r.uid}" data-handle="${r.handle}">Knock</button>`;
-        row.innerHTML = `<span class="who"><span class="dot ${r.online ? 'on' : ''}"></span>@${r.handle}</span>${btn}`;
-        const b = row.querySelector('button');
-        if (b) b.addEventListener('click', () => handlers.onKnock(r.uid, r.handle));
+        row.innerHTML = `<span class="who"><span class="dot ${r.online ? 'on' : ''}"></span>@${escapeHtml(r.handle)}</span>`;
+        if (r.self) {
+          row.insertAdjacentHTML('beforeend', '<span class="muted">you</span>');
+        } else {
+          const knock = document.createElement('button');
+          knock.textContent = 'Knock';
+          knock.addEventListener('click', () => handlers.onKnock(r.uid, r.handle));
+          const add = document.createElement('button');
+          add.className = 'deny'; add.textContent = '+ Add';
+          add.addEventListener('click', () => handlers.onAddFriend(r.uid, r.handle));
+          const wrap = document.createElement('span');
+          wrap.append(knock, document.createTextNode(' '), add);
+          row.appendChild(wrap);
+        }
         el.friendResults.appendChild(row);
+      }
+    },
+
+    setFriends(list) {
+      if (!list || !list.length) { el.friendsList.innerHTML = '<div class="muted">no friends yet</div>'; return; }
+      el.friendsList.innerHTML = '';
+      for (const f of list) {
+        const row = document.createElement('div');
+        row.className = 'person';
+        row.innerHTML = `<span class="who"><span class="dot ${f.online ? 'on' : ''}"></span>@${escapeHtml(f.handle)}</span>`;
+        const knock = document.createElement('button');
+        knock.textContent = 'Knock';
+        knock.addEventListener('click', () => handlers.onKnock(f.uid, f.handle));
+        row.appendChild(knock);
+        el.friendsList.appendChild(row);
+      }
+    },
+
+    setFriendRequests(list) {
+      if (!list || !list.length) { el.reqList.innerHTML = '<div class="muted">none</div>'; return; }
+      el.reqList.innerHTML = '';
+      for (const r of list) {
+        const row = document.createElement('div');
+        row.className = 'person';
+        row.innerHTML = `<span class="who">@${escapeHtml(r.handle)}</span>`;
+        const ok = document.createElement('button'); ok.textContent = 'Accept';
+        ok.addEventListener('click', () => handlers.onAcceptFriend(r.uid, r.handle));
+        const no = document.createElement('button'); no.className = 'deny'; no.textContent = 'Decline';
+        no.addEventListener('click', () => handlers.onDeclineFriend(r.uid));
+        const wrap = document.createElement('span'); wrap.append(ok, document.createTextNode(' '), no);
+        row.appendChild(wrap);
+        el.reqList.appendChild(row);
       }
     },
 

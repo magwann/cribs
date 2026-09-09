@@ -8,7 +8,7 @@ import { CATALOG_BY_ID } from './catalog.js';
 import { saveCrib as saveLocal, loadCrib as loadLocal } from './storage.js';
 import {
   onUser, getUser, getUid, saveMyCrib, loadCribById,
-  signInGoogle, signInApple, signInEmail, signUpEmail, logOut,
+  signInGoogle, signInEmail, signUpEmail, logOut,
 } from './firebase.js';
 import * as net from './net.js';
 
@@ -29,8 +29,11 @@ let cribId = null;      // ?crib target for static visits
 let myHandle = null;
 let roomHost = null;    // uid of the live room we're in (null when offline)
 let roomConn = null;    // { update, leave }
-const unsub = { players: null, chat: null, knocks: null, myKnock: null };
+const unsub = { players: null, chat: null, knocks: null, myKnock: null, friends: null, freq: null };
 let posAcc = 0;
+let lastChatTs = 0;       // only bubble messages newer than this
+let friendsCache = [];
+const activeTVs = new Set(); // powered-on TV screen meshes to animate
 
 // ---- top-down build view ----
 let topDown = false;
@@ -58,6 +61,8 @@ const ui = createUI({
   onPick: (id) => builder.arm(id),
   onSave, onShare, onLeave, onAccount, onAuth,
   onClaimUsername, onSearch, onKnock, onRespondKnock, onLeaveRoom, onSendChat,
+  onRecolor: (color) => builder.setSelectedColor(color),
+  onAddFriend, onAcceptFriend, onDeclineFriend,
   onObjAction: (act) => {
     if (act === 'rotate') builder.rotateSelected();
     if (act === 'delete') builder.deleteSelected();
@@ -65,7 +70,7 @@ const ui = createUI({
 });
 
 const builder = createBuilder(scene, camera, canvas, {
-  onSelect: (item) => ui.setSelected(!!item),
+  onSelect: (item) => ui.setSelected(!!item, !!(item && CATALOG_BY_ID[item.id] && CATALOG_BY_ID[item.id].recolor)),
 });
 
 // ---- click-a-seat-to-sit (explore mode only) ----
@@ -77,8 +82,39 @@ canvas.addEventListener('pointerup', (e) => {
   const item = builder.pickItemAt(e.clientX, e.clientY);
   if (!item) return;
   const cat = CATALOG_BY_ID[item.id];
-  if (cat && cat.sit) sitOn(item, cat);
+  if (cat && cat.tv) toggleTV(item);
+  else if (cat && cat.sit) sitOn(item, cat);
 });
+
+let tvOffset = 0;
+function toggleTV(item) {
+  const screen = item.group.getObjectByName('tv-screen');
+  if (!screen) return;
+  if (!screen.userData._base) {
+    screen.userData._base = {
+      color: screen.material.color.clone(),
+      emissive: screen.material.emissive.clone(),
+    };
+  }
+  screen.userData.on = !screen.userData.on;
+  if (screen.userData.on) {
+    screen.userData.offset = (tvOffset += 0.17);
+    activeTVs.add(screen);
+    ui.toast('TV on');
+  } else {
+    activeTVs.delete(screen);
+    screen.material.color.copy(screen.userData._base.color);
+    screen.material.emissive.copy(screen.userData._base.emissive);
+  }
+}
+function animateTVs(elapsed) {
+  for (const s of activeTVs) {
+    const o = s.userData.offset || 0;
+    // shifting colored glow + slight flicker = "something's playing"
+    s.material.emissive.setHSL((elapsed * 0.12 + o) % 1, 0.85, 0.42 + 0.08 * Math.sin(elapsed * 22 + o));
+  }
+}
+
 function sitOn(item, cat) {
   item.group.updateMatrixWorld();
   let best = null, bestD = Infinity;
@@ -142,14 +178,39 @@ async function goOnline() {
     known = pending.length;
   });
 
+  // friends list + incoming friend requests
+  if (unsub.friends) unsub.friends();
+  unsub.friends = net.listenFriends((list) => { friendsCache = list; renderFriends(); });
+  if (unsub.freq) unsub.freq();
+  unsub.freq = net.listenFriendRequests((list) => ui.setFriendRequests(list));
+
   if (!visiting) enterRoom(getUid()); // host your own room
+}
+
+async function renderFriends() {
+  const withOnline = await Promise.all((friendsCache || []).map(async (f) => ({
+    ...f, online: await net.isOnline(f.uid).catch(() => false),
+  })));
+  ui.setFriends(withOnline);
+}
+
+function onAddFriend(uid, handle) {
+  net.sendFriendRequest(uid, myHandle).then(() => ui.toast(`friend request sent to @${handle}`)).catch((e) => { console.error(e); ui.toast('could not send request'); });
+}
+function onAcceptFriend(uid, handle) {
+  net.acceptFriend(uid, handle, myHandle).then(() => ui.toast(`you and @${handle} are friends`)).catch((e) => { console.error(e); ui.toast('could not accept'); });
+}
+function onDeclineFriend(uid) {
+  net.declineFriend(uid).catch((e) => console.error(e));
 }
 
 function teardownOnline() {
   myHandle = null;
   teardownRoom();
-  if (unsub.knocks) { unsub.knocks(); unsub.knocks = null; }
-  if (unsub.myKnock) { unsub.myKnock(); unsub.myKnock = null; }
+  for (const k of ['knocks', 'myKnock', 'friends', 'freq']) {
+    if (unsub[k]) { unsub[k](); unsub[k] = null; }
+  }
+  friendsCache = [];
   roomHost = null;
   ui.setRoomMode(false, false);
 }
@@ -170,12 +231,21 @@ async function enterRoom(hostUid) {
     visiting = false;
     ui.setVisiting(false, null);
   }
+  lastChatTs = Date.now(); // don't bubble room history on join
   roomConn = net.joinRoom(hostUid, myHandle);
   unsub.players = net.listenRoomPlayers(hostUid, (players) => {
     remotes.sync(players, getUid());
     ui.setRoster(players, getUid());
   });
-  unsub.chat = net.listenChat(hostUid, (msgs) => ui.setChat(msgs));
+  unsub.chat = net.listenChat(hostUid, (msgs) => {
+    ui.setChat(msgs);
+    for (const m of msgs) {
+      if (m.ts <= lastChatTs || !m.uid) continue;
+      if (m.uid === getUid()) player.showBubble(m.text);
+      else remotes.showBubble(m.uid, m.text);
+    }
+    if (msgs.length) lastChatTs = Math.max(lastChatTs, msgs[msgs.length - 1].ts);
+  });
   ui.setRoomMode(true, isVisiting);
 }
 
@@ -275,7 +345,6 @@ async function onAuth(kind, creds) {
   ui.setAuthError('');
   try {
     if (kind === 'google') await signInGoogle();
-    else if (kind === 'apple') await signInApple();
     else if (kind === 'signin') await signInEmail(creds.email, creds.pass);
     else if (kind === 'signup') await signUpEmail(creds.email, creds.pass);
   } catch (e) { console.error('auth error', e); ui.setAuthError(prettyAuthError(e)); }
@@ -308,6 +377,7 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   player.update(dt);
   remotes.update(dt);
+  if (activeTVs.size) animateTVs(clock.getElapsedTime());
   if (topDown) applyTopDown();
 
   // stream my position to the room a few times a second

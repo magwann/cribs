@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ROOM } from './world.js';
+import { attachBubble } from './bubble.js';
 
 // ---------------------------------------------------------------------------
 // PLAYER
@@ -114,6 +115,7 @@ export function createPlayer(scene, camera, canvas) {
     sit,
     stand,
     isSitting: () => state.sitting,
+    showBubble: (text) => attachBubble(avatar, text, (state.bubble ||= {})),
     getYaw: () => state.yaw,
   };
 }

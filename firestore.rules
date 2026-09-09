@@ -12,6 +12,20 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == uid;
+
+      // Mutual friends: you own your list, but a new friend may add themselves
+      // to it when accepting (doc id == their uid).
+      match /friends/{fid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if request.auth != null && (request.auth.uid == uid || request.auth.uid == fid);
+      }
+      // Incoming friend requests: the sender creates one in your inbox; either
+      // party can delete it (accept/decline/cancel).
+      match /requests/{fromUid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == fromUid;
+        allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == fromUid);
+      }
     }
 
     // Unique @handle claims. Anyone can look one up; you can only create/hold

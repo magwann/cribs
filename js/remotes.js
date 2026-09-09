@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildAvatar } from './player.js';
+import { attachBubble } from './bubble.js';
 
 // ---------------------------------------------------------------------------
 // REMOTES — manages the meshes for other players in a live room. Positions
@@ -85,6 +86,10 @@ export function createRemotes(scene) {
       }
     },
 
+    showBubble(uid, text) {
+      const e = map.get(uid);
+      if (e) attachBubble(e.group, text, (e.bubble ||= {}));
+    },
     count() { return map.size; },
     clear() { for (const [, e] of map) scene.remove(e.group); map.clear(); },
   };

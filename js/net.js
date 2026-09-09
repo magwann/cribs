@@ -1,6 +1,7 @@
 import { app, db, getUid } from './firebase.js';
 import {
-  doc, getDoc, setDoc, runTransaction, serverTimestamp,
+  doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp,
+  collection, onSnapshot,
 } from 'firebase/firestore';
 import {
   getDatabase, ref, set, update, remove, onValue, push, onDisconnect, get,
@@ -144,13 +145,49 @@ export function listenRoomPlayers(hostUid, cb) {
 export function sendChat(hostUid, handle, text) {
   const t = (text || '').slice(0, 240);
   if (!t.trim()) return;
-  return push(ref(rtdb(), `rooms/${hostUid}/chat`), { handle, text: t, ts: Date.now() });
+  return push(ref(rtdb(), `rooms/${hostUid}/chat`), { uid: getUid(), handle, text: t, ts: Date.now() });
 }
 
-// cb gets an array of {handle,text,ts} in chronological order.
+// cb gets an array of {uid,handle,text,ts} in chronological order.
 export function listenChat(hostUid, cb) {
   return onValue(ref(rtdb(), `rooms/${hostUid}/chat`), (snap) => {
     const val = snap.val() || {};
     cb(Object.values(val).sort((a, b) => a.ts - b.ts));
+  });
+}
+
+// ---------- friends (Firestore) ----------
+// users/{uid}/friends/{fid}   -> mutual friends
+// users/{uid}/requests/{from} -> incoming friend requests
+
+export function sendFriendRequest(toUid, myHandle) {
+  const uid = getUid();
+  if (!uid) throw new Error('not online');
+  return setDoc(doc(db, 'users', toUid, 'requests', uid), { handle: myHandle, ts: Date.now() });
+}
+
+export function listenFriendRequests(cb) {
+  const uid = getUid();
+  return onSnapshot(collection(db, 'users', uid, 'requests'), (snap) => {
+    cb(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+  });
+}
+
+export async function acceptFriend(fromUid, fromHandle, myHandle) {
+  const uid = getUid();
+  await setDoc(doc(db, 'users', uid, 'friends', fromUid), { handle: fromHandle, ts: Date.now() });
+  await setDoc(doc(db, 'users', fromUid, 'friends', uid), { handle: myHandle, ts: Date.now() });
+  await deleteDoc(doc(db, 'users', uid, 'requests', fromUid));
+}
+
+export function declineFriend(fromUid) {
+  const uid = getUid();
+  return deleteDoc(doc(db, 'users', uid, 'requests', fromUid));
+}
+
+export function listenFriends(cb) {
+  const uid = getUid();
+  return onSnapshot(collection(db, 'users', uid, 'friends'), (snap) => {
+    cb(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
   });
 }
