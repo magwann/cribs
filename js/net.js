@@ -6,6 +6,7 @@ import {
 import {
   getDatabase, ref, set, update, remove, onValue, push, onDisconnect, get,
 } from 'firebase/database';
+import { getStorage, ref as sref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // ---------------------------------------------------------------------------
 // NET — the social + realtime layer.
@@ -24,6 +25,11 @@ let _db = null;
 function rtdb() {
   if (!_db) _db = getDatabase(app);
   return _db;
+}
+let _storage = null;
+function storage() {
+  if (!_storage) _storage = getStorage(app);
+  return _storage;
 }
 
 const HANDLE_RE = /^[a-z0-9_]{3,16}$/;
@@ -173,6 +179,27 @@ export function sendChat(hostUid, handle, text) {
   const t = (text || '').slice(0, 240);
   if (!t.trim()) return;
   return push(ref(rtdb(), `rooms/${hostUid}/chat`), { uid: getUid(), handle, text: t, ts: Date.now() });
+}
+
+// ---------- room music (Storage upload + RTDB sync) ----------
+
+// Upload an MP3 to Storage and return its public URL.
+export async function uploadRoomMusic(hostUid, file) {
+  const safe = (file.name || 'track.mp3').replace(/[^\w.\-]+/g, '_').slice(-60);
+  const r = sref(storage(), `roomMusic/${hostUid}/${Date.now()}_${safe}`);
+  await uploadBytes(r, file, { contentType: file.type || 'audio/mpeg' });
+  return getDownloadURL(r);
+}
+
+// Broadcast the now-playing track to everyone in the room.
+export function setRoomMusic(hostUid, url, name, handle) {
+  return set(ref(rtdb(), `rooms/${hostUid}/music`), { url, name, by: handle, startedAt: Date.now() });
+}
+export function stopRoomMusic(hostUid) {
+  return remove(ref(rtdb(), `rooms/${hostUid}/music`));
+}
+export function listenRoomMusic(hostUid, cb) {
+  return onValue(ref(rtdb(), `rooms/${hostUid}/music`), (snap) => cb(snap.val()));
 }
 
 // cb gets an array of {uid,handle,text,ts} in chronological order.

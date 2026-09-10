@@ -152,6 +152,7 @@ export function createPlayer(scene, camera, canvas) {
     emote,
     setColor,
     setMoveAxis: (x, y) => { state.mx = x; state.my = y; },
+    setPosition: (x, z) => { state.sitting = false; avatar.position.set(x, 0, z); },
     isSitting: () => state.sitting,
     showBubble: (text) => attachBubble(avatar, text, (state.bubble ||= {})),
     getYaw: () => state.yaw,

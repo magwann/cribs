@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Room music: anyone signed in can upload a track (≤30MB); anyone can stream it.
+    match /roomMusic/{hostUid}/{file} {
+      allow read: if true;
+      allow write: if request.auth != null && request.resource.size < 30 * 1024 * 1024;
+    }
+  }
+}

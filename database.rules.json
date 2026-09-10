@@ -29,6 +29,9 @@
             ".write": "auth != null"
           }
         },
+        "music": {
+          ".write": "auth != null"
+        },
         "kicks": {
           ".write": "auth != null && auth.uid === $host"
         }

@@ -25,17 +25,22 @@ export function createMusic(onTrack) {
     const j = Math.floor(Math.random() * (i + 1));
     [order[i], order[j]] = [order[j], order[i]];
   }
-  let pos = 0, mode = 'bg', enabled = true, boomUrl = null;
+  let pos = 0, mode = 'bg', enabled = true, pendingSeek = 0, roomKey = null;
 
-  const revokeBoom = () => { if (boomUrl) { URL.revokeObjectURL(boomUrl); boomUrl = null; } };
   function playBg() {
     mode = 'bg';
     audio.src = 'music/' + encodeURIComponent(PLAYLIST[order[pos]]);
     onTrack && onTrack('♪ ' + title(PLAYLIST[order[pos]]));
     if (enabled) audio.play().catch(() => {});
   }
+  audio.addEventListener('loadedmetadata', () => {
+    if (mode === 'room' && pendingSeek > 0 && pendingSeek < (audio.duration || 1e9)) {
+      try { audio.currentTime = pendingSeek; } catch {}
+    }
+    pendingSeek = 0;
+  });
   audio.addEventListener('ended', () => {
-    if (mode === 'boom') revokeBoom();
+    if (mode === 'room') { mode = 'bg'; } // a shared track finished → back to ambient
     pos = (pos + 1) % order.length;
     playBg();
   });
@@ -48,15 +53,18 @@ export function createMusic(onTrack) {
       return enabled;
     },
     isOn() { return enabled; },
-    // play a user-picked MP3 through the boombox
-    playFile(file) {
-      revokeBoom();
-      mode = 'boom';
-      boomUrl = URL.createObjectURL(file);
-      audio.src = boomUrl;
+    // Play a shared room track from a URL, seeking to `at` seconds (late-join sync).
+    // `key` dedupes repeat snapshots so we don't restart the same track.
+    playRoom(url, name, at = 0, key = url) {
+      if (key === roomKey && mode === 'room') return;
+      roomKey = key;
+      mode = 'room';
+      pendingSeek = at;
+      audio.src = url;
       enabled = true;
-      onTrack && onTrack('▶ ' + title(file.name));
+      onTrack && onTrack('▶ ' + title(name || 'track'));
       audio.play().catch(() => {});
     },
+    resumeBg() { if (mode === 'room') { roomKey = null; playBg(); } },
   };
 }

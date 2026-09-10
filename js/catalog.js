@@ -310,6 +310,65 @@ export const CATALOG = [
     },
   },
   {
+    id: 'gchair', label: 'Gaming Chair', swatch: '#e04a4a', recolor: true,
+    sit: [{ x: 0, y: 0.55, z: 0, yaw: 0 }],
+    build(color = '#e04a4a') {
+      const g = new THREE.Group();
+      g.add(box(0.5, 0.12, 0.5, color, 0, 0.55, 0));            // seat
+      g.add(box(0.5, 0.8, 0.1, color, 0, 0.95, -0.22));         // back
+      g.add(box(0.5, 0.16, 0.1, shade(color, 0.1), 0, 1.32, -0.2)); // headrest
+      g.add(cyl(0.05, 0.05, 0.35, '#222', 0, 0.37, 0));         // post
+      for (let a = 0; a < 5; a++) {
+        const ang = (a / 5) * Math.PI * 2;
+        g.add(box(0.26, 0.05, 0.07, '#222', Math.sin(ang) * 0.16, 0.06, Math.cos(ang) * 0.16));
+      }
+      return g;
+    },
+  },
+  {
+    id: 'easel', label: 'Art', swatch: '#8e44ad', recolor: true,
+    build(color = '#8e44ad') {
+      const g = new THREE.Group();
+      g.add(box(0.7, 0.9, 0.05, '#e8e6dd', 0, 0.95, 0));        // canvas
+      g.add(box(0.58, 0.72, 0.02, color, 0, 0.95, 0.04));       // painting (recolor)
+      g.add(box(0.05, 1.3, 0.05, '#6b4a34', -0.26, 0.65, -0.08));
+      g.add(box(0.05, 1.3, 0.05, '#6b4a34', 0.26, 0.65, -0.08));
+      g.add(box(0.05, 1.05, 0.05, '#6b4a34', 0, 0.52, 0.16));
+      return g;
+    },
+  },
+  {
+    id: 'ruground', label: 'Round Rug', swatch: '#3fae5a', recolor: true,
+    build(color = '#3fae5a') {
+      const g = new THREE.Group();
+      const r = cyl(0.9, 0.9, 0.03, color, 0, 0.015, 0, 20); r.receiveShadow = true; r.castShadow = false; g.add(r);
+      g.add(cyl(0.55, 0.55, 0.032, shade(color, 0.12), 0, 0.017, 0, 20));
+      return g;
+    },
+  },
+  {
+    id: 'cactus', label: 'Cactus', swatch: '#3fae5a',
+    build() {
+      const g = new THREE.Group();
+      g.add(cyl(0.18, 0.22, 0.3, '#c0663a', 0, 0.15, 0, 8));
+      g.add(cyl(0.12, 0.14, 0.7, '#3fae5a', 0, 0.6, 0, 8));
+      const a1 = cyl(0.06, 0.07, 0.3, '#3fae5a', 0.17, 0.7, 0, 8); a1.rotation.z = -0.5; g.add(a1);
+      const a2 = cyl(0.06, 0.07, 0.25, '#3fae5a', -0.15, 0.8, 0, 8); a2.rotation.z = 0.5; g.add(a2);
+      return g;
+    },
+  },
+  {
+    id: 'clock', label: 'Clock', swatch: '#6b4a34', recolor: true,
+    build(color = '#6b4a34') {
+      const g = new THREE.Group();
+      g.add(box(0.4, 1.6, 0.3, color, 0, 0.8, 0));
+      const face = cyl(0.15, 0.15, 0.03, '#e8e6dd', 0, 1.3, 0.16, 16); face.rotation.x = Math.PI / 2; g.add(face);
+      g.add(box(0.02, 0.1, 0.02, '#111', 0, 1.34, 0.18));
+      g.add(box(0.09, 0.02, 0.02, '#111', 0.03, 1.3, 0.18));
+      return g;
+    },
+  },
+  {
     id: 'lava', label: 'Lava Lamp', swatch: '#ff5c8a', recolor: true,
     build(color = '#ff5c8a') {
       const g = new THREE.Group();

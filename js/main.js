@@ -47,7 +47,7 @@ let myHandle = null;
 let myColor = '#7cf0c8';
 let roomHost = null;
 let roomConn = null;
-const unsub = { players: null, chat: null, kicks: null, knocks: null, myKnock: null, friends: null, freq: null };
+const unsub = { players: null, chat: null, kicks: null, music: null, knocks: null, myKnock: null, friends: null, freq: null };
 let posAcc = 0, lastChatTs = 0, friendsCache = [], currentRoster = [];
 let roomFloor = ROOM_DEFAULTS.floor, roomWall = ROOM_DEFAULTS.wall;
 let currentEmote = null, emoteTs = 0;
@@ -94,10 +94,18 @@ if (mobileMode) {
 // ---- music: ambient background playlist + boombox MP3 playback ----
 const music = createMusic((t) => { const el = $('now-playing'); el.textContent = t; el.classList.remove('hidden'); });
 $('music-btn').addEventListener('click', () => { $('music-btn').textContent = music.toggle() ? '🎵' : '🔇'; });
-$('mp3-input').addEventListener('change', (e) => {
+$('mp3-input').addEventListener('change', async (e) => {
   const f = e.target.files && e.target.files[0];
-  if (f) { music.playFile(f); ui.toast('playing your track 🎶'); }
   e.target.value = '';
+  if (!f || !roomHost) return;
+  ui.toast('uploading your track…');
+  try {
+    const url = await net.uploadRoomMusic(roomHost, f);
+    await net.setRoomMusic(roomHost, url, f.name, myHandle); // everyone in the room hears it
+  } catch (err) {
+    console.error('music upload failed', err);
+    ui.toast('couldn’t play that file');
+  }
 });
 
 // ---- explore-mode click: sit / toggle TV ----
@@ -228,7 +236,8 @@ async function enterRoom(hostUid) {
   if (!isVisiting) { roomFloor = room.floor || ROOM_DEFAULTS.floor; roomWall = room.wall || ROOM_DEFAULTS.wall; }
   visiting = isVisiting;
   ui.setVisiting(isVisiting, data && data.name);
-  if (isVisiting) player.stand();
+  // spawn near the front of the room with a little scatter so people don't stack
+  player.setPosition((Math.random() * 5 - 2.5), 2.5 + Math.random() * 1.5);
 
   lastChatTs = Date.now();
   roomConn = net.joinRoom(hostUid, myHandle);
@@ -254,6 +263,15 @@ async function enterRoom(hostUid) {
     }
     if (msgs.length) lastChatTs = Math.max(lastChatTs, msgs[msgs.length - 1].ts);
   });
+  // shared room music — everyone hears whatever's on the boombox
+  unsub.music = net.listenRoomMusic(hostUid, (m) => {
+    if (m && m.url) {
+      const at = Math.max(0, (Date.now() - (m.startedAt || Date.now())) / 1000);
+      music.playRoom(m.url, m.name, at, m.startedAt);
+    } else {
+      music.resumeBg();
+    }
+  });
   ui.setRoomMode(true, isVisiting);
 }
 function teardownRoom() {
@@ -261,6 +279,8 @@ function teardownRoom() {
   if (unsub.players) { unsub.players(); unsub.players = null; }
   if (unsub.chat) { unsub.chat(); unsub.chat = null; }
   if (unsub.kicks) { unsub.kicks(); unsub.kicks = null; }
+  if (unsub.music) { unsub.music(); unsub.music = null; }
+  music.resumeBg(); // back to ambient when leaving a room
   remotes.clear();
   currentRoster = [];
 }
