@@ -98,12 +98,13 @@ $('mp3-input').addEventListener('change', async (e) => {
   const f = e.target.files && e.target.files[0];
   e.target.value = '';
   if (!f || !roomHost) return;
-  ui.toast('uploading your track…');
+  if (f.size > 8 * 1024 * 1024) { ui.toast('track too big — max ~8MB (free hosting 😅)'); return; }
+  ui.toast('loading your track…');
   try {
-    const url = await net.uploadRoomMusic(roomHost, f);
-    await net.setRoomMusic(roomHost, url, f.name, myHandle); // everyone in the room hears it
+    const dataUrl = await net.fileToDataUrl(f);
+    await net.setRoomMusic(roomHost, dataUrl, f.name, myHandle); // everyone in the room hears it
   } catch (err) {
-    console.error('music upload failed', err);
+    console.error('music share failed', err);
     ui.toast('couldn’t play that file');
   }
 });

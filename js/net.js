@@ -6,7 +6,6 @@ import {
 import {
   getDatabase, ref, set, update, remove, onValue, push, onDisconnect, get,
 } from 'firebase/database';
-import { getStorage, ref as sref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // ---------------------------------------------------------------------------
 // NET — the social + realtime layer.
@@ -25,11 +24,6 @@ let _db = null;
 function rtdb() {
   if (!_db) _db = getDatabase(app);
   return _db;
-}
-let _storage = null;
-function storage() {
-  if (!_storage) _storage = getStorage(app);
-  return _storage;
 }
 
 const HANDLE_RE = /^[a-z0-9_]{3,16}$/;
@@ -181,17 +175,19 @@ export function sendChat(hostUid, handle, text) {
   return push(ref(rtdb(), `rooms/${hostUid}/chat`), { uid: getUid(), handle, text: t, ts: Date.now() });
 }
 
-// ---------- room music (Storage upload + RTDB sync) ----------
+// ---------- room music (free: track rides over the Realtime Database) ----------
 
-// Upload an MP3 to Storage and return its public URL.
-export async function uploadRoomMusic(hostUid, file) {
-  const safe = (file.name || 'track.mp3').replace(/[^\w.\-]+/g, '_').slice(-60);
-  const r = sref(storage(), `roomMusic/${hostUid}/${Date.now()}_${safe}`);
-  await uploadBytes(r, file, { contentType: file.type || 'audio/mpeg' });
-  return getDownloadURL(r);
+// Read a file into a data: URL so it can be shared without paid Storage.
+export function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
 }
 
-// Broadcast the now-playing track to everyone in the room.
+// Broadcast the now-playing track (a data URL) to everyone in the room.
 export function setRoomMusic(hostUid, url, name, handle) {
   return set(ref(rtdb(), `rooms/${hostUid}/music`), { url, name, by: handle, startedAt: Date.now() });
 }
