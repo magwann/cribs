@@ -21,7 +21,7 @@ export function createPlayer(scene, camera, canvas) {
     yaw: 0,          // camera orbit around avatar
     pitch: 0.35,
     dist: 6,
-    dragging: false,
+    dragId: null,   // pointerId currently orbiting the camera (multi-touch safe)
     lastX: 0,
     lastY: 0,
     enabled: true,        // movement (WASD)
@@ -78,14 +78,16 @@ export function createPlayer(scene, camera, canvas) {
   });
 
   canvas.addEventListener('pointerdown', (e) => {
-    if (!state.enabled) return;
-    state.dragging = true;
+    if (!state.enabled || state.dragId !== null) return; // one finger owns the camera
+    state.dragId = e.pointerId;
     state.lastX = e.clientX;
     state.lastY = e.clientY;
   });
-  window.addEventListener('pointerup', () => { state.dragging = false; });
+  const endDrag = (e) => { if (e.pointerId === state.dragId) state.dragId = null; };
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
   window.addEventListener('pointermove', (e) => {
-    if (!state.dragging || !state.enabled) return;
+    if (e.pointerId !== state.dragId || !state.enabled) return; // ignore the joystick finger
     const dx = e.clientX - state.lastX;
     const dy = e.clientY - state.lastY;
     state.lastX = e.clientX;
@@ -143,7 +145,7 @@ export function createPlayer(scene, camera, canvas) {
   return {
     avatar,
     update,
-    setEnabled: (v) => { state.enabled = v; if (!v) state.dragging = false; },
+    setEnabled: (v) => { state.enabled = v; if (!v) state.dragId = null; },
     setCameraControl: (v) => { state.cameraControl = v; },
     sit,
     stand,
