@@ -45,7 +45,7 @@ const ui = createUI({
   onToggleBuild: toggleBuild, onToggleView: toggleView,
   onPick: (id) => builder.arm(id),
   onSave, onShare, onLeave, onAccount, onAuth, onClaimUsername,
-  onSearch, onKnock, onRespondKnock, onLeaveRoom, onSendChat, onKick,
+  onSearch, onKnock, onRespondKnock, onLeaveRoom, onSendChat, onKick, onClearChat,
   onRecolor: (c) => builder.setSelectedColor(c),
   onFloorColor: (c) => { roomFloor = c; setFloorColor(c); },
   onWallColor: (c) => { roomWall = c; setWallColor(c); },
@@ -250,6 +250,10 @@ async function onKnock(hostUid, handle) {
 }
 function onRespondKnock(visitorUid, approve) { net.respondKnock(visitorUid, approve).catch((e) => console.error(e)); }
 function onSendChat(text) { if (roomHost && myHandle) net.sendChat(roomHost, myHandle, text); }
+function onClearChat() {
+  if (roomHost !== getUid()) return; // host only
+  net.clearChat(getUid()).then(() => ui.toast('chat cleared')).catch((e) => console.error(e));
+}
 
 function doEmote(name) { player.emote(name); currentEmote = name; emoteTs = Date.now(); }
 

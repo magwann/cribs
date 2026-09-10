@@ -206,6 +206,12 @@ html, body { height: 100%; overflow: hidden; background: #05121a; }
 
 /* ---------- Chat ---------- */
 #chat { position: fixed; bottom: 16px; left: 16px; width: 300px; max-width: 60vw; z-index: 12; display: flex; flex-direction: column; gap: 6px; }
+.chat-clear {
+  align-self: flex-start; cursor: pointer; color: var(--ink); font-size: 0.7rem; letter-spacing: 0.05em;
+  background: var(--glass); backdrop-filter: blur(8px); border: 1px solid var(--edge);
+  border-radius: 999px; padding: 4px 10px; box-shadow: inset 0 1px 0 var(--edge-bright);
+}
+.chat-clear:hover { border-color: var(--accent2); }
 .chat-log { display: flex; flex-direction: column; gap: 3px; max-height: 200px; overflow-y: auto; font-size: 0.82rem; text-shadow: 1px 1px 0 rgba(0,0,0,0.8); }
 .chat-log .msg { line-height: 1.35; }
 .chat-log .msg b { color: var(--aqua); }

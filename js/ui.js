@@ -52,6 +52,7 @@ export function createUI(handlers) {
     chat: $('chat'),
     chatLog: $('chat-log'),
     chatInput: $('chat-input'),
+    chatClear: $('chat-clear'),
     nameModal: $('name-modal'),
     nameInput: $('name-input'),
     nameSave: $('name-save'),
@@ -106,6 +107,8 @@ export function createUI(handlers) {
   el.authSignin.addEventListener('click', () => handlers.onAuth('signin', creds()));
   el.authSignup.addEventListener('click', () => handlers.onAuth('signup', creds()));
   el.authPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') handlers.onAuth('signin', creds()); });
+
+  el.chatClear.addEventListener('click', () => handlers.onClearChat());
 
   // emotes
   el.emoteBar.querySelectorAll('button').forEach((b) => {
@@ -288,6 +291,7 @@ export function createUI(handlers) {
       el.chat.classList.toggle('hidden', !inRoom);
       el.leaveRoomBtn.classList.toggle('hidden', !inRoom);
       el.leaveRoomBtn.textContent = isVisiting ? '◄ LEAVE ROOM' : 'CLOSE CRIB';
+      el.chatClear.classList.toggle('hidden', !(inRoom && !isVisiting)); // host only
     },
 
     setChat(msgs) {

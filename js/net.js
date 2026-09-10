@@ -156,6 +156,11 @@ export function listenKicks(hostUid, cb) {
   return onValue(ref(rtdb(), `rooms/${hostUid}/kicks`), (snap) => cb(snap.val() || {}));
 }
 
+// Host wipes the room chat (rules restrict clearing to the host).
+export function clearChat(hostUid) {
+  return remove(ref(rtdb(), `rooms/${hostUid}/chat`));
+}
+
 export function sendChat(hostUid, handle, text) {
   const t = (text || '').slice(0, 240);
   if (!t.trim()) return;

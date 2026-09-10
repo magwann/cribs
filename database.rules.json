@@ -24,7 +24,10 @@
           }
         },
         "chat": {
-          ".write": "auth != null"
+          ".write": "auth != null && auth.uid === $host",
+          "$msg": {
+            ".write": "auth != null"
+          }
         },
         "kicks": {
           ".write": "auth != null && auth.uid === $host"
