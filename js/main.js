@@ -153,7 +153,13 @@ function animate(elapsed) {
   for (const a of animatedNodes) {
     if (a.type === 'discoBall') a.node.rotation.y = elapsed * 1.6;
     else if (a.type === 'discoLight') a.node.color.setHSL((elapsed * 0.35) % 1, 1, 0.6);
-    else if (a.type === 'lava') { a.node.position.y = a.base + Math.sin(elapsed * 1.5) * 0.12; a.node.material.emissive.setHSL((elapsed * 0.1) % 1, 0.8, 0.5); }
+    else if (a.type === 'lava') {
+      const ph = a.node.userData.phase || 0;
+      const t = (Math.sin(elapsed * 0.8 + ph) + 1) / 2;       // 0..1 slow bob
+      a.node.position.y = 0.24 + t * 0.42;                    // rise/fall inside the glass
+      a.node.scale.setScalar(0.8 + 0.35 * Math.sin(elapsed * 1.1 + ph)); // squish
+      a.node.material.emissive.setHSL((elapsed * 0.05 + ph * 0.1) % 1, 0.85, 0.4 + 0.2 * t);
+    }
   }
 }
 

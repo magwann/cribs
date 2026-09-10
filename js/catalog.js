@@ -372,14 +372,25 @@ export const CATALOG = [
     id: 'lava', label: 'Lava Lamp', swatch: '#ff5c8a', recolor: true,
     build(color = '#ff5c8a') {
       const g = new THREE.Group();
-      g.add(cyl(0.12, 0.16, 0.1, '#333', 0, 0.05, 0));
-      g.add(cyl(0.1, 0.14, 0.7, '#20102a', 0, 0.45, 0, 10));
-      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 0), mat(color));
-      blob.material.emissive = new THREE.Color(color);
-      blob.position.y = 0.4;
-      blob.userData.anim = 'lava';
-      g.add(blob);
-      g.add(cyl(0.1, 0.1, 0.08, '#333', 0, 0.82, 0));
+      g.add(cyl(0.12, 0.16, 0.1, '#333', 0, 0.05, 0));      // base
+      // translucent glass so the glowing blobs show through
+      const glass = cyl(0.1, 0.14, 0.72, '#2a1830', 0, 0.46, 0, 14);
+      glass.material.transparent = true; glass.material.opacity = 0.28; glass.castShadow = false;
+      g.add(glass);
+      // rising/glowing blobs — animated in main
+      for (let i = 0; i < 3; i++) {
+        const bl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.055 + i * 0.015, 0), mat(color));
+        bl.material.emissive = new THREE.Color(color);
+        bl.castShadow = false;
+        bl.position.y = 0.3 + i * 0.12;
+        bl.userData.anim = 'lava';
+        bl.userData.phase = i * 2.1;
+        g.add(bl);
+      }
+      const glow = new THREE.PointLight(color, 1.6, 2.5, 2);
+      glow.position.y = 0.45;
+      g.add(glow);
+      g.add(cyl(0.1, 0.1, 0.08, '#333', 0, 0.85, 0));       // cap
       return g;
     },
   },
