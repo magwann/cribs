@@ -99,6 +99,7 @@ export function createRemotes(scene) {
           if (e.emoteT > 4) endRemoteEmote(e);
         } else if (e.emote === 'wave') {
           e.emoteT += dt;
+          e.group.rotation.z = Math.sin(e.emoteT * 11) * 0.2; // body shake
           if (e.hand) { e.hand.visible = true; e.hand.rotation.z = Math.sin(e.emoteT * 13) * 0.7; }
           if (e.emoteT > 1.8) endRemoteEmote(e);
         } else {

@@ -56,6 +56,7 @@ export function createPlayer(scene, camera, canvas) {
       avatar.rotation.y += dt * 6;
       if (t > 4) endEmote();
     } else if (state.emote === 'wave') {
+      avatar.rotation.z = Math.sin(t * 11) * 0.2; // whole-body shake, like before
       if (hand) { hand.visible = true; hand.rotation.z = Math.sin(t * 13) * 0.7; }
       if (t > 1.8) endEmote();
     }
@@ -171,11 +172,21 @@ export function buildAvatar(bodyColor = 0x7cf0c8) {
   nose.position.set(0, 1.4, 0.22);
   g.add(nose);
 
-  // No permanent arms. A single hand appears only while waving.
-  const hand = mk(new THREE.IcosahedronGeometry(0.1, 0), 0xffd8a8);
-  hand.position.set(0.42, 1.5, 0.14);
+  // No permanent arms. A little hand (palm + fingers) appears only while waving.
+  const hand = new THREE.Group();
   hand.name = 'hand';
+  hand.position.set(0.42, 1.5, 0.14);
   hand.visible = false;
+  const palm = mk(new THREE.BoxGeometry(0.17, 0.15, 0.08), 0xffd8a8);
+  hand.add(palm);
+  for (let i = 0; i < 4; i++) {              // four fingers
+    const f = mk(new THREE.BoxGeometry(0.032, 0.13, 0.06), 0xffd8a8);
+    f.position.set(-0.06 + i * 0.04, 0.13, 0);
+    hand.add(f);
+  }
+  const thumb = mk(new THREE.BoxGeometry(0.05, 0.032, 0.06), 0xffd8a8); // thumb
+  thumb.position.set(-0.1, 0.0, 0);
+  hand.add(thumb);
   g.add(hand);
   return g;
 }
