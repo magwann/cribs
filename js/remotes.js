@@ -44,8 +44,7 @@ function roundRect(ctx, x, y, w, h, r) {
 function endRemoteEmote(e) {
   e.emote = null;
   e.group.rotation.z = 0;
-  if (e.armR) e.armR.rotation.z = 0;
-  if (e.armL) e.armL.rotation.z = 0;
+  if (e.hand) { e.hand.visible = false; e.hand.rotation.z = 0; }
 }
 
 export function createRemotes(scene) {
@@ -68,7 +67,7 @@ export function createRemotes(scene) {
           e = {
             group, handle: p.handle,
             target: { x: p.x || 0, y: 0, z: p.z || 0, ry: p.ry || 0 },
-            armR: group.getObjectByName('armR'), armL: group.getObjectByName('armL'),
+            hand: group.getObjectByName('hand'),
           };
           e.group.position.set(e.target.x, 0, e.target.z);
           map.set(uid, e);
@@ -97,13 +96,10 @@ export function createRemotes(scene) {
           e.emoteT += dt;
           e.group.position.y += Math.abs(Math.sin(e.emoteT * 9)) * 0.18;
           e.group.rotation.y += dt * 6;
-          const s = Math.sin(e.emoteT * 9);
-          if (e.armR) e.armR.rotation.z = -0.6 - s * 1.1;
-          if (e.armL) e.armL.rotation.z = 0.6 + s * 1.1;
           if (e.emoteT > 4) endRemoteEmote(e);
         } else if (e.emote === 'wave') {
           e.emoteT += dt;
-          if (e.armR) e.armR.rotation.z = 2.4 + Math.sin(e.emoteT * 13) * 0.5;
+          if (e.hand) { e.hand.visible = true; e.hand.rotation.z = Math.sin(e.emoteT * 13) * 0.7; }
           if (e.emoteT > 1.8) endRemoteEmote(e);
         } else {
           // shortest-arc rotate toward target facing

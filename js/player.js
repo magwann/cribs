@@ -14,8 +14,7 @@ export function createPlayer(scene, camera, canvas) {
   const avatar = buildAvatar();
   avatar.position.set(0, 0, 3);
   scene.add(avatar);
-  const armR = avatar.getObjectByName('armR');
-  const armL = avatar.getObjectByName('armL');
+  const hand = avatar.getObjectByName('hand');
 
   const state = {
     keys: {},
@@ -55,20 +54,15 @@ export function createPlayer(scene, camera, canvas) {
     if (state.emote === 'dance') {
       if (!state.sitting) avatar.position.y = Math.abs(Math.sin(t * 9)) * 0.18;
       avatar.rotation.y += dt * 6;
-      const s = Math.sin(t * 9);
-      if (armR) armR.rotation.z = -0.6 - s * 1.1;
-      if (armL) armL.rotation.z = 0.6 + s * 1.1;
       if (t > 4) endEmote();
     } else if (state.emote === 'wave') {
-      // raise the right arm up-and-out to the side and wave the hand
-      if (armR) armR.rotation.z = 2.4 + Math.sin(t * 13) * 0.5;
+      if (hand) { hand.visible = true; hand.rotation.z = Math.sin(t * 13) * 0.7; }
       if (t > 1.8) endEmote();
     }
   }
   function endEmote() {
     avatar.rotation.z = 0;
-    if (armR) armR.rotation.z = 0;
-    if (armL) armL.rotation.z = 0;
+    if (hand) { hand.visible = false; hand.rotation.z = 0; }
     if (!state.sitting) avatar.position.y = 0;
     state.emote = null;
   }
@@ -177,19 +171,11 @@ export function buildAvatar(bodyColor = 0x7cf0c8) {
   nose.position.set(0, 1.4, 0.22);
   g.add(nose);
 
-  // arms — each is a pivot at the shoulder so it can swing/wave from there
-  const limb = (side) => {
-    const pivot = new THREE.Group();
-    pivot.position.set(0.3 * side, 1.0, 0);
-    const upper = mk(new THREE.CapsuleGeometry(0.06, 0.26, 2, 4), bodyColor);
-    upper.position.y = -0.18; upper.userData.body = true;
-    pivot.add(upper);
-    const hand = mk(new THREE.IcosahedronGeometry(0.08, 0), 0xffd8a8);
-    hand.position.y = -0.37;
-    pivot.add(hand);
-    return pivot;
-  };
-  const armR = limb(1); armR.name = 'armR'; g.add(armR);
-  const armL = limb(-1); armL.name = 'armL'; g.add(armL);
+  // No permanent arms. A single hand appears only while waving.
+  const hand = mk(new THREE.IcosahedronGeometry(0.1, 0), 0xffd8a8);
+  hand.position.set(0.42, 1.5, 0.14);
+  hand.name = 'hand';
+  hand.visible = false;
+  g.add(hand);
   return g;
 }
