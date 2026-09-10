@@ -220,6 +220,7 @@ async function enterRoom(hostUid) {
 
   lastChatTs = Date.now();
   roomConn = net.joinRoom(hostUid, myHandle);
+  net.setPresenceRoom(hostUid); // so the admin dashboard can group people by room
   unsub.players = net.listenRoomPlayers(hostUid, (players) => {
     currentRoster = Object.keys(players || {});
     remotes.sync(players, getUid());

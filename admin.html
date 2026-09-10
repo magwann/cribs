@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cribs Admin</title>
+<link rel="icon" href="icon.svg" />
+<link rel="stylesheet" href="css/style.css" />
+<script type="importmap">
+{ "imports": {
+  "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+  "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
+  "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js",
+  "firebase/database": "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"
+}}
+</script>
+<style>
+  body { overflow: auto; background:
+    radial-gradient(1200px 700px at 20% -10%, rgba(80,230,220,0.14), transparent 60%),
+    radial-gradient(900px 600px at 90% 110%, rgba(60,130,255,0.12), transparent 60%),
+    linear-gradient(160deg, #0a2230 0%, #061620 55%, #04101a 100%);
+    min-height: 100vh; color: var(--ink); }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 18px 60px; }
+  .admin-head { display:flex; align-items:center; justify-content:space-between; margin-bottom: 22px; }
+  .admin-head h1 { font-size: 1.6rem; letter-spacing:0.12em; color: var(--aqua); }
+  .admin-head .sub { font-size:0.72rem; opacity:0.55; letter-spacing:0.15em; }
+  .tiles { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:22px; }
+  .tile { background: var(--glass); border:1px solid var(--edge); border-radius:14px; padding:16px;
+    box-shadow: inset 0 1px 0 var(--edge-bright); backdrop-filter: blur(12px); position:relative; overflow:hidden; }
+  .tile::before { content:''; position:absolute; inset:0 0 auto 0; height:45%; background:linear-gradient(180deg,rgba(255,255,255,0.12),transparent); }
+  .tile .n { font-size:2.4rem; font-weight:800; color: var(--aqua); line-height:1; }
+  .tile .l { font-size:0.72rem; opacity:0.65; letter-spacing:0.1em; text-transform:uppercase; margin-top:8px; }
+  .tile.live .n { color: var(--green); }
+  .cols { display:grid; grid-template-columns: 1fr 1.3fr; gap:14px; }
+  @media (max-width:720px){ .cols { grid-template-columns:1fr; } }
+  .panel { background: var(--glass); border:1px solid var(--edge); border-radius:14px; padding:14px; backdrop-filter: blur(12px); box-shadow: inset 0 1px 0 var(--edge-bright); }
+  .panel h2 { font-size:0.78rem; letter-spacing:0.15em; text-transform:uppercase; opacity:0.7; margin-bottom:10px; }
+  .row { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:0.9rem; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .room { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .room-h { font-weight:700; color: var(--aqua); font-size:0.9rem; }
+  .room-w { font-size:0.8rem; opacity:0.75; margin-top:3px; }
+  .dot { width:8px;height:8px;border-radius:50%;background:#567;display:inline-block; }
+  .dot.on { background: var(--green); box-shadow:0 0 8px var(--green); }
+  .muted { opacity:0.4; font-size:0.85rem; padding:6px 0; }
+  .center { min-height:100vh; display:grid; place-items:center; }
+</style>
+</head><body>
+  <!-- login -->
+  <div id="login" class="center hidden">
+    <div class="auth-card">
+      <h2>CRIBS ADMIN</h2>
+      <p class="auth-sub">Sign in with an admin account.</p>
+      <button id="g" class="auth-provider">Continue with Google</button>
+      <div class="auth-divider"><span>or</span></div>
+      <input id="em" class="auth-input" type="email" placeholder="email" />
+      <input id="pw" class="auth-input" type="password" placeholder="password" />
+      <button id="si" class="auth-provider small">Sign in</button>
+      <p id="login-err" class="auth-error"></p>
+    </div>
+  </div>
+
+  <!-- denied -->
+  <div id="denied" class="center hidden">
+    <div class="auth-card">
+      <h2>ADMINS ONLY</h2>
+      <p class="auth-sub">This account isn't on the admin list.</p>
+      <p class="auth-sub" style="opacity:0.9">You are: <b id="who"></b></p>
+      <button id="out2" class="auth-provider small ghost">Sign out</button>
+    </div>
+  </div>
+
+  <!-- dashboard -->
+  <div id="dash" class="hidden"><div class="wrap">
+    <div class="admin-head">
+      <div><h1>CRIBS ADMIN</h1><div class="sub">live ops dashboard</div></div>
+      <button id="out" class="hud-btn ghost">Sign out</button>
+    </div>
+    <div class="tiles">
+      <div class="tile live"><div class="n" id="stat-online">0</div><div class="l">Online now</div></div>
+      <div class="tile live"><div class="n" id="stat-inrooms">0</div><div class="l">In rooms</div></div>
+      <div class="tile live"><div class="n" id="stat-rooms">0</div><div class="l">Active gatherings</div></div>
+      <div class="tile"><div class="n" id="stat-users">–</div><div class="l">Registered users</div></div>
+      <div class="tile"><div class="n" id="stat-cribs">–</div><div class="l">Total cribs</div></div>
+    </div>
+    <div class="cols">
+      <div class="panel"><h2>Online now</h2><div id="online-list"><div class="muted">…</div></div></div>
+      <div class="panel"><h2>Active rooms</h2><div id="rooms-list"><div class="muted">…</div></div></div>
+    </div>
+  </div></div>
+
+  <script type="module" src="js/admin.js?v=2"></script>
+</body></html>

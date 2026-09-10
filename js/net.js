@@ -76,6 +76,14 @@ export function goOnlinePresence(handle) {
   onDisconnect(r).remove();
 }
 
+// Tag which room (host uid) you're currently in — used by the admin dashboard,
+// which reads the public presence tree rather than every room individually.
+export function setPresenceRoom(hostUid) {
+  const uid = getUid();
+  if (!uid) return;
+  update(ref(rtdb(), `presence/${uid}`), { room: hostUid, ts: Date.now() });
+}
+
 export async function isOnline(uid) {
   const snap = await get(ref(rtdb(), `presence/${uid}`));
   return snap.exists();
