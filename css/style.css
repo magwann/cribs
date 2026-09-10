@@ -219,6 +219,34 @@ html, body { height: 100%; overflow: hidden; background: #05121a; }
   background: var(--glass-solid); backdrop-filter: blur(10px); border: 1px solid var(--edge); border-radius: 999px; box-shadow: inset 0 1px 0 var(--edge-bright); }
 .chat-input:focus { outline: none; border-color: var(--aqua); }
 
+/* keep the chat clear of the joystick on mobile */
+body.mobile #chat { left: 156px; bottom: 10px; width: min(300px, 38vw); }
+body.mobile .chat-log { max-height: 120px; }
+
+/* ---------- Mobile joystick ---------- */
+#joystick { position: fixed; left: 18px; bottom: 18px; z-index: 16; touch-action: none; }
+#joy-base {
+  width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, rgba(255,255,255,0.12), rgba(10,26,38,0.5));
+  border: 1px solid var(--edge); box-shadow: inset 0 1px 0 var(--edge-bright), 0 6px 20px rgba(0,0,0,0.4);
+  display: grid; place-items: center; touch-action: none;
+}
+#joy-knob {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: var(--grad); border: 1px solid rgba(255,255,255,0.5);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,0.6), 0 4px 12px rgba(0,0,0,0.4);
+  transition: transform 0.05s linear; pointer-events: none;
+}
+
+/* ---------- Mobile overlays ---------- */
+.steps { text-align: left; margin: 0 0 16px; padding-left: 18px; font-size: 0.82rem; line-height: 1.6; opacity: 0.9; }
+.steps li { margin-bottom: 10px; }
+.steps .ic { filter: grayscale(0.2); }
+.rotate-card { text-align: center; color: var(--ink); }
+.rotate-icon { font-size: 4rem; animation: rock 1.6s ease-in-out infinite; }
+.rotate-card p { margin-top: 12px; font-size: 1rem; letter-spacing: 0.03em; }
+@keyframes rock { 0%,100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+
 /* ---------- Object toolbar ---------- */
 #obj-tools {
   position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);

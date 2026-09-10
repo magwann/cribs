@@ -28,6 +28,7 @@ export function createPlayer(scene, camera, canvas) {
     cameraControl: true,  // owns the camera (off when top-down mode drives it)
     sitting: false,       // seated on a couch/chair
     speed: 4,             // units / second
+    mx: 0, my: 0,         // analog move axis from the mobile joystick (-1..1)
   };
 
   function sit(worldPos, yaw) {
@@ -94,10 +95,10 @@ export function createPlayer(scene, camera, canvas) {
   });
 
   function update(dt) {
-    // Any movement key stands you up out of a seat first.
-    if (state.sitting && (state.keys['w'] || state.keys['a'] || state.keys['s'] || state.keys['d'] || state.keys[' '])) {
-      stand();
-    }
+    // Any movement input stands you up out of a seat first.
+    const moving = state.keys['w'] || state.keys['a'] || state.keys['s'] || state.keys['d'] ||
+      state.keys[' '] || Math.hypot(state.mx, state.my) > 0.2;
+    if (state.sitting && moving) stand();
 
     if (state.enabled && !state.sitting) {
       // Movement basis from camera yaw
@@ -108,10 +109,13 @@ export function createPlayer(scene, camera, canvas) {
       if (state.keys['s']) move.add(forward);
       if (state.keys['a']) move.sub(rightV);
       if (state.keys['d']) move.add(rightV);
+      // joystick (my: up = forward like W, mx: right = strafe like D)
+      if (state.my) move.addScaledVector(forward, -state.my);
+      if (state.mx) move.addScaledVector(rightV, state.mx);
 
       if (move.lengthSq() > 0) {
-        move.normalize().multiplyScalar(state.speed * dt);
-        avatar.position.add(move);
+        if (move.length() > 1) move.normalize();   // clamp but keep analog magnitude
+        avatar.position.addScaledVector(move, state.speed * dt);
         // face travel direction
         avatar.rotation.y = Math.atan2(move.x, move.z);
       }
@@ -145,6 +149,7 @@ export function createPlayer(scene, camera, canvas) {
     stand,
     emote,
     setColor,
+    setMoveAxis: (x, y) => { state.mx = x; state.my = y; },
     isSitting: () => state.sitting,
     showBubble: (text) => attachBubble(avatar, text, (state.bubble ||= {})),
     getYaw: () => state.yaw,

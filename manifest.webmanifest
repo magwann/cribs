@@ -1,0 +1,14 @@
+{
+  "name": "Cribs",
+  "short_name": "Cribs",
+  "description": "Build and visit low-poly digital homes.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#05121a",
+  "theme_color": "#0a2230",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

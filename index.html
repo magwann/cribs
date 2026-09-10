@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>CRIBS</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230a0a12'/><rect x='3' y='7' width='10' height='6' fill='%237cf0c8'/><rect x='2' y='7' width='12' height='2' fill='%23ff5c8a'/></svg>" />
+  <!-- PWA / iOS fullscreen when added to home screen -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <meta name="theme-color" content="#0a2230" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Cribs" />
   <link rel="stylesheet" href="css/style.css" />
   <!-- No build step: load Three.js as ES modules straight from a CDN. -->
   <script type="importmap">
@@ -104,6 +112,32 @@
   <div id="emote-bar" class="hidden">
     <button data-emote="wave">👋 Wave (Z)</button>
     <button data-emote="dance">🕺 Dance (X)</button>
+  </div>
+
+  <!-- Mobile: on-screen movement joystick -->
+  <div id="joystick" class="hidden">
+    <div id="joy-base"><div id="joy-knob"></div></div>
+  </div>
+
+  <!-- Mobile in-browser: must install to home screen for fullscreen landscape -->
+  <div id="a2hs" class="overlay hidden">
+    <div class="auth-card">
+      <h2>PLAY ON MOBILE</h2>
+      <p class="auth-sub">Cribs runs fullscreen in landscape once you add it to your home screen. Two quick steps:</p>
+      <ol class="steps">
+        <li><b>iPhone / iPad:</b> tap the <b>Share</b> icon <span class="ic">⬆️</span> in Safari, then <b>Add to Home Screen</b>.</li>
+        <li><b>Android:</b> tap the <b>⋮</b> menu in Chrome, then <b>Add to Home screen</b> / <b>Install app</b>.</li>
+      </ol>
+      <p class="auth-sub">Then open <b>Cribs</b> from your home screen and turn your phone <b>sideways</b>. See you inside! 👋</p>
+    </div>
+  </div>
+
+  <!-- Mobile: rotate to landscape prompt -->
+  <div id="rotate" class="overlay hidden">
+    <div class="rotate-card">
+      <div class="rotate-icon">📱↻</div>
+      <p>Turn your phone <b>sideways</b> to hang out.</p>
+    </div>
   </div>
 
   <!-- transient toast -->

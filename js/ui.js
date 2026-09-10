@@ -64,6 +64,7 @@ export function createUI(handlers) {
   };
   const creds = () => ({ email: el.authEmail.value.trim(), pass: el.authPass.value });
   let avatarColor = RECOLOR_SWATCHES[3]; // currently-selected avatar color
+  let mobile = false;                    // mobile users can't build
 
   // --- build catalog palette ---
   for (const item of CATALOG) {
@@ -150,8 +151,8 @@ export function createUI(handlers) {
       el.viewToggle.textContent = topDown ? '⬔ 3D (V)' : '⬒ TOP (V)';
     },
     setVisiting(visiting, cribName) {
-      // In someone else's crib you can walk around but not build.
-      el.buildToggle.classList.toggle('hidden', visiting);
+      // In someone else's crib you can walk around but not build (nor on mobile).
+      el.buildToggle.classList.toggle('hidden', visiting || mobile);
       if (visiting) {
         el.modePill.textContent = cribName ? `VISITING · ${cribName}` : 'VISITING';
         el.builder.classList.add('hidden');
@@ -171,6 +172,10 @@ export function createUI(handlers) {
       el.hud.classList.add('hidden');
       el.emoteBar.classList.add('hidden');
       el.people.classList.add('hidden');
+    },
+    setMobile(on) {
+      mobile = on; // mobile users can hang out but not build
+      el.buildToggle.classList.toggle('hidden', on);
     },
     flashSave(text) {
       el.saveStatus.textContent = text;

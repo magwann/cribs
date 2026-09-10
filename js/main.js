@@ -4,6 +4,7 @@ import { createPlayer } from './player.js';
 import { createBuilder } from './builder.js';
 import { createUI } from './ui.js';
 import { createRemotes } from './remotes.js';
+import { createJoystick } from './joystick.js';
 import { CATALOG_BY_ID } from './catalog.js';
 import { saveCrib as saveLocal, loadCrib as loadLocal } from './storage.js';
 import {
@@ -21,6 +22,19 @@ const canvas = document.getElementById('game');
 const { renderer, scene, camera, setFloorColor, setWallColor } = createWorld(canvas);
 const player = createPlayer(scene, camera, canvas);
 const remotes = createRemotes(scene);
+
+// ---- mobile detection ----
+const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
+const standalone = matchMedia('(display-mode: standalone)').matches ||
+  matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+const mobileMode = isMobile && standalone; // installed to home screen → play
+const $ = (id) => document.getElementById(id);
+
+if (isMobile && !standalone) {
+  // In a mobile browser: require install-to-home-screen first.
+  $('a2hs').classList.remove('hidden');
+}
 
 let building = false;
 let visiting = false;
@@ -58,6 +72,19 @@ const builder = createBuilder(scene, camera, canvas, {
   onSelect: (item) => ui.setSelected(!!item, !!(item && CATALOG_BY_ID[item.id] && CATALOG_BY_ID[item.id].recolor)),
   onChange: refreshAnimated,
 });
+
+// ---- mobile mode: joystick, no building, landscape prompt ----
+if (mobileMode) {
+  document.body.classList.add('mobile');
+  ui.setMobile(true); // hides the Build button; mobile users only hang out
+  $('joystick').classList.remove('hidden');
+  createJoystick($('joy-base'), $('joy-knob'), (x, y) => player.setMoveAxis(x, y));
+  const checkOrient = () => $('rotate').classList.toggle('hidden', !matchMedia('(orientation: portrait)').matches);
+  window.addEventListener('resize', checkOrient);
+  matchMedia('(orientation: portrait)').addEventListener('change', checkOrient);
+  checkOrient();
+  try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch {}
+}
 
 // ---- explore-mode click: sit / toggle TV ----
 let downX = 0, downY = 0;
@@ -264,6 +291,7 @@ function suggestHandle(u) {
 
 // ---- build / crib ----
 function toggleBuild() {
+  if (mobileMode) { ui.toast('building is on desktop only — hang out & visit on mobile'); return; }
   if (visiting) { ui.toast("this isn't your crib"); return; }
   player.stand();
   building = !building;
