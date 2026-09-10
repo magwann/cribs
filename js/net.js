@@ -143,8 +143,10 @@ export function listenRoomPlayers(hostUid, cb) {
   });
 }
 
-// Host kicks a visitor: writes a kick marker the visitor's client watches.
+// Host kicks a visitor: remove their player record directly (clears ghosts
+// too) AND write a kick marker so a live client stops and goes home.
 export function kickPlayer(hostUid, visitorUid) {
+  remove(ref(rtdb(), `rooms/${hostUid}/players/${visitorUid}`));
   return set(ref(rtdb(), `rooms/${hostUid}/kicks/${visitorUid}`), Date.now());
 }
 export function clearKick(hostUid, visitorUid) {

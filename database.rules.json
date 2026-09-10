@@ -20,7 +20,7 @@
         ".read": "auth != null",
         "players": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid"
+            ".write": "auth != null && (auth.uid === $uid || auth.uid === $host)"
           }
         },
         "chat": {
