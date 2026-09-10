@@ -24,8 +24,12 @@ const player = createPlayer(scene, camera, canvas);
 const remotes = createRemotes(scene);
 
 // ---- mobile detection ----
-const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent) ||
-  (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
+// Robust across iOS "Request Desktop Website" (UA hides iPhone) and iPadOS
+// (reports as Mac): fall back to touch + no-hover, which is true on phones.
+const uaMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+const iPadOS = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+const touchPhone = navigator.maxTouchPoints > 0 && matchMedia('(hover: none)').matches;
+const isMobile = uaMobile || iPadOS || touchPhone;
 const standalone = matchMedia('(display-mode: standalone)').matches ||
   matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
 const mobileMode = isMobile && standalone; // installed to home screen → play
