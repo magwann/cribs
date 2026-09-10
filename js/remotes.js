@@ -41,6 +41,13 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+function endRemoteEmote(e) {
+  e.emote = null;
+  e.group.rotation.z = 0;
+  if (e.armR) e.armR.rotation.z = 0;
+  if (e.armL) e.armL.rotation.z = 0;
+}
+
 export function createRemotes(scene) {
   const map = new Map(); // uid -> { group, target:{x,y,z,ry}, handle }
 
@@ -58,7 +65,11 @@ export function createRemotes(scene) {
           tag.position.y = 1.95;
           group.add(tag);
           scene.add(group);
-          e = { group, target: { x: p.x || 0, y: 0, z: p.z || 0, ry: p.ry || 0 }, handle: p.handle };
+          e = {
+            group, handle: p.handle,
+            target: { x: p.x || 0, y: 0, z: p.z || 0, ry: p.ry || 0 },
+            armR: group.getObjectByName('armR'), armL: group.getObjectByName('armL'),
+          };
           e.group.position.set(e.target.x, 0, e.target.z);
           map.set(uid, e);
         }
@@ -66,7 +77,7 @@ export function createRemotes(scene) {
         e.target.z = p.z || 0;
         e.target.y = p.sitting ? -0.1 : 0;
         e.target.ry = p.ry || 0;
-        if (p.color) { const bm = e.group.getObjectByName('body'); if (bm) bm.material.color.set(p.color); }
+        if (p.color) e.group.traverse((o) => { if (o.isMesh && o.userData.body) o.material.color.set(p.color); });
         if (p.emote && p.emoteTs && p.emoteTs !== e.lastEmoteTs) {
           e.lastEmoteTs = p.emoteTs; e.emote = p.emote; e.emoteT = 0;
         }
@@ -86,11 +97,14 @@ export function createRemotes(scene) {
           e.emoteT += dt;
           e.group.position.y += Math.abs(Math.sin(e.emoteT * 9)) * 0.18;
           e.group.rotation.y += dt * 6;
-          if (e.emoteT > 4) { e.emote = null; e.group.rotation.z = 0; }
+          const s = Math.sin(e.emoteT * 9);
+          if (e.armR) e.armR.rotation.z = -0.6 - s * 1.1;
+          if (e.armL) e.armL.rotation.z = 0.6 + s * 1.1;
+          if (e.emoteT > 4) endRemoteEmote(e);
         } else if (e.emote === 'wave') {
           e.emoteT += dt;
-          e.group.rotation.z = Math.sin(e.emoteT * 11) * 0.25;
-          if (e.emoteT > 1.6) { e.emote = null; e.group.rotation.z = 0; }
+          if (e.armR) e.armR.rotation.z = 2.4 + Math.sin(e.emoteT * 13) * 0.5;
+          if (e.emoteT > 1.8) endRemoteEmote(e);
         } else {
           // shortest-arc rotate toward target facing
           let d = e.target.ry - e.group.rotation.y;

@@ -235,15 +235,16 @@ export const CATALOG = [
   },
   {
     id: 'disco', label: 'Disco Ball', swatch: '#c0c8d8',
+    ceiling: true, // hangs from the ceiling wherever you place it
     build() {
       const g = new THREE.Group();
-      g.add(cyl(0.015, 0.015, 0.5, '#444', 0, 1.75, 0)); // hang cord
+      g.add(cyl(0.015, 0.015, 0.8, '#444', 0, 3.6, 0)); // cord up to the ceiling (~y=4)
       const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), mat('#c8d0e0'));
-      ball.position.y = 1.35; ball.castShadow = true;
+      ball.position.y = 3.1; ball.castShadow = true;
       ball.userData.anim = 'discoBall';
       g.add(ball);
-      const light = new THREE.PointLight('#ffffff', 10, 9, 2);
-      light.position.set(0, 1.35, 0);
+      const light = new THREE.PointLight('#ffffff', 12, 12, 2);
+      light.position.set(0, 2.9, 0);
       light.userData.anim = 'discoLight';
       g.add(light);
       return g;

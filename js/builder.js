@@ -90,6 +90,7 @@ export function createBuilder(scene, camera, canvas, { onSelect, onChange } = {}
   }
 
   function place(pos) {
+    if (CATALOG_BY_ID[pending].ceiling) pos.y = 0; // ceiling items are drawn high; anchor at floor origin
     const group = CATALOG_BY_ID[pending].build();
     group.position.copy(pos);
     group.rotation.y = ghost ? ghost.rotation.y : 0;
@@ -173,12 +174,12 @@ export function createBuilder(scene, camera, canvas, { onSelect, onChange } = {}
     if (!active) return;
     if (pending && ghost) {
       const pos = screenToSurface(e.clientX, e.clientY);
-      if (pos) { ghost.position.copy(pos); ghost.visible = true; }
+      if (pos) { if (CATALOG_BY_ID[pending].ceiling) pos.y = 0; ghost.position.copy(pos); ghost.visible = true; }
       return;
     }
     if (dragging && selected) {
       const pos = screenToSurface(e.clientX, e.clientY, selected.group);
-      if (pos) selected.group.position.copy(pos);
+      if (pos) { if (CATALOG_BY_ID[selected.id] && CATALOG_BY_ID[selected.id].ceiling) pos.y = 0; selected.group.position.copy(pos); }
     }
   }
 
