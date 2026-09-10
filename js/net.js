@@ -103,6 +103,7 @@ export function listenIncomingKnocks(cb) {
 // Host approves/denies a specific visitor.
 export function respondKnock(visitorUid, approve) {
   const uid = getUid();
+  if (approve) remove(ref(rtdb(), `rooms/${uid}/kicks/${visitorUid}`)); // clear any stale kick
   return update(ref(rtdb(), `knocks/${uid}/${visitorUid}`), {
     status: approve ? 'approved' : 'denied',
   });
@@ -140,6 +141,17 @@ export function listenRoomPlayers(hostUid, cb) {
   return onValue(ref(rtdb(), `rooms/${hostUid}/players`), (snap) => {
     cb(snap.val() || {});
   });
+}
+
+// Host kicks a visitor: writes a kick marker the visitor's client watches.
+export function kickPlayer(hostUid, visitorUid) {
+  return set(ref(rtdb(), `rooms/${hostUid}/kicks/${visitorUid}`), Date.now());
+}
+export function clearKick(hostUid, visitorUid) {
+  return remove(ref(rtdb(), `rooms/${hostUid}/kicks/${visitorUid}`));
+}
+export function listenKicks(hostUid, cb) {
+  return onValue(ref(rtdb(), `rooms/${hostUid}/kicks`), (snap) => cb(snap.val() || {}));
 }
 
 export function sendChat(hostUid, handle, text) {

@@ -28,8 +28,8 @@ let myHandle = null;
 let myColor = '#7cf0c8';
 let roomHost = null;
 let roomConn = null;
-const unsub = { players: null, chat: null, knocks: null, myKnock: null, friends: null, freq: null };
-let posAcc = 0, lastChatTs = 0, friendsCache = [];
+const unsub = { players: null, chat: null, kicks: null, knocks: null, myKnock: null, friends: null, freq: null };
+let posAcc = 0, lastChatTs = 0, friendsCache = [], currentRoster = [];
 let roomFloor = ROOM_DEFAULTS.floor, roomWall = ROOM_DEFAULTS.wall;
 let currentEmote = null, emoteTs = 0;
 const activeTVs = new Set();
@@ -45,7 +45,7 @@ const ui = createUI({
   onToggleBuild: toggleBuild, onToggleView: toggleView,
   onPick: (id) => builder.arm(id),
   onSave, onShare, onLeave, onAccount, onAuth, onClaimUsername,
-  onSearch, onKnock, onRespondKnock, onLeaveRoom, onSendChat,
+  onSearch, onKnock, onRespondKnock, onLeaveRoom, onSendChat, onKick,
   onRecolor: (c) => builder.setSelectedColor(c),
   onFloorColor: (c) => { roomFloor = c; setFloorColor(c); },
   onWallColor: (c) => { roomWall = c; setWallColor(c); },
@@ -189,7 +189,19 @@ async function enterRoom(hostUid) {
 
   lastChatTs = Date.now();
   roomConn = net.joinRoom(hostUid, myHandle);
-  unsub.players = net.listenRoomPlayers(hostUid, (players) => { remotes.sync(players, getUid()); ui.setRoster(players, getUid()); });
+  unsub.players = net.listenRoomPlayers(hostUid, (players) => {
+    currentRoster = Object.keys(players || {});
+    remotes.sync(players, getUid());
+    ui.setRoster(players, getUid(), !isVisiting); // host sees Kick buttons
+  });
+  // if visiting, watch for being kicked by the host
+  if (isVisiting) {
+    let firstKick = true;
+    unsub.kicks = net.listenKicks(hostUid, (kicks) => {
+      if (firstKick) { firstKick = false; return; }
+      if (kicks && kicks[getUid()]) { ui.toast('you were kicked from this crib'); enterRoom(getUid()); }
+    });
+  }
   unsub.chat = net.listenChat(hostUid, (msgs) => {
     ui.setChat(msgs);
     for (const m of msgs) {
@@ -204,9 +216,21 @@ function teardownRoom() {
   if (roomConn) { roomConn.leave(); roomConn = null; }
   if (unsub.players) { unsub.players(); unsub.players = null; }
   if (unsub.chat) { unsub.chat(); unsub.chat = null; }
+  if (unsub.kicks) { unsub.kicks(); unsub.kicks = null; }
   remotes.clear();
+  currentRoster = [];
 }
-function onLeaveRoom() { enterRoom(getUid()); }
+function onLeaveRoom() {
+  if (roomHost !== getUid()) { enterRoom(getUid()); return; } // visitor → go home
+  // host → close the crib: send every guest home
+  const guests = currentRoster.filter((u) => u !== getUid());
+  guests.forEach((u) => net.kickPlayer(getUid(), u));
+  ui.toast(guests.length ? 'sent everyone home' : 'nobody else here');
+}
+function onKick(uid, handle) {
+  net.kickPlayer(getUid(), uid);
+  ui.toast(`kicked @${handle}`);
+}
 
 async function onSearch(value) {
   const res = await net.lookupHandle(value);

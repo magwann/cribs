@@ -149,7 +149,6 @@ export function createUI(handlers) {
     setVisiting(visiting, cribName) {
       // In someone else's crib you can walk around but not build.
       el.buildToggle.classList.toggle('hidden', visiting);
-      el.leaveBtn.classList.toggle('hidden', !visiting);
       if (visiting) {
         el.modePill.textContent = cribName ? `VISITING · ${cribName}` : 'VISITING';
         el.builder.classList.add('hidden');
@@ -267,16 +266,28 @@ export function createUI(handlers) {
       }
     },
 
-    setRoster(players, selfUid) {
-      const names = Object.entries(players || {}).map(([uid, p]) => uid === selfUid ? 'you' : '@' + (p.handle || 'guest'));
-      el.roomRoster.innerHTML = names.length
-        ? names.map((n) => `<div class="person"><span class="who">${n}</span></div>`).join('')
-        : '<div class="muted">just you</div>';
+    setRoster(players, selfUid, isHost) {
+      const entries = Object.entries(players || {});
+      el.roomRoster.innerHTML = '';
+      if (!entries.length) { el.roomRoster.innerHTML = '<div class="muted">just you</div>'; return; }
+      for (const [uid, p] of entries) {
+        const row = document.createElement('div');
+        row.className = 'person';
+        row.innerHTML = `<span class="who">${uid === selfUid ? 'you' : '@' + escapeHtml(p.handle || 'guest')}</span>`;
+        if (isHost && uid !== selfUid) {
+          const kick = document.createElement('button');
+          kick.className = 'deny'; kick.textContent = 'Kick';
+          kick.addEventListener('click', () => handlers.onKick(uid, p.handle || 'guest'));
+          row.appendChild(kick);
+        }
+        el.roomRoster.appendChild(row);
+      }
     },
 
     setRoomMode(inRoom, isVisiting) {
       el.chat.classList.toggle('hidden', !inRoom);
-      el.leaveRoomBtn.classList.toggle('hidden', !isVisiting);
+      el.leaveRoomBtn.classList.toggle('hidden', !inRoom);
+      el.leaveRoomBtn.textContent = isVisiting ? '◄ LEAVE ROOM' : 'CLOSE CRIB';
     },
 
     setChat(msgs) {

@@ -25,6 +25,9 @@
         },
         "chat": {
           ".write": "auth != null"
+        },
+        "kicks": {
+          ".write": "auth != null && auth.uid === $host"
         }
       }
     }
