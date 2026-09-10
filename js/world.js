@@ -15,17 +15,18 @@ export function createWorld(canvas) {
   renderer.setClearColor(0x0a0a12);
   // Chunky pixels: cap the internal buffer to roughly half-res.
   const ps2Ratio = () => Math.min(window.devicePixelRatio, 1) * 0.6;
+  // visualViewport is the reliable size on iOS (innerWidth lags after rotation)
+  const vw = () => Math.round(window.visualViewport ? window.visualViewport.width : window.innerWidth);
+  const vh = () => Math.round(window.visualViewport ? window.visualViewport.height : window.innerHeight);
   renderer.setPixelRatio(ps2Ratio());
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(vw(), vh());
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.BasicShadowMap; // hard, cheap shadows
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0x14182a, 14, 26);
 
-  const camera = new THREE.PerspectiveCamera(
-    60, window.innerWidth / window.innerHeight, 0.1, 100
-  );
+  const camera = new THREE.PerspectiveCamera(60, vw() / vh(), 0.1, 100);
 
   // ---- Lighting rig ----
   const ambient = new THREE.AmbientLight(0x8895b5, 1.1);
@@ -49,12 +50,16 @@ export function createWorld(canvas) {
   scene.add(room);
 
   function onResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const w = vw(), h = vh();
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(ps2Ratio());
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(w, h, true);
   }
   window.addEventListener('resize', onResize);
+  // iOS reports stale dimensions right after an orientation flip — re-check.
+  window.addEventListener('orientationchange', () => { onResize(); setTimeout(onResize, 250); setTimeout(onResize, 600); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize);
 
   const setFloorColor = (c) => { if (c) room.userData.floorMat.color.set(c); };
   const setWallColor = (c) => { if (c) room.userData.wallMat.color.set(c); };
