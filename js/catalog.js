@@ -251,6 +251,65 @@ export const CATALOG = [
     },
   },
   {
+    id: 'bed', label: 'Bed', swatch: '#c85a7a', recolor: true,
+    sit: [{ x: 0, y: 0.55, z: 0.4, yaw: 0 }],
+    build(color = '#c85a7a') {
+      const g = new THREE.Group();
+      g.add(box(1.4, 0.3, 2.0, '#6b4a34', 0, 0.2, 0));       // frame
+      g.add(box(1.3, 0.2, 1.9, '#e8e6dd', 0, 0.42, 0.02));   // mattress
+      g.add(box(1.3, 0.2, 1.2, color, 0, 0.5, 0.4));         // blanket (recolor)
+      g.add(box(1.2, 0.15, 0.5, '#ffffff', 0, 0.5, -0.65));  // pillow
+      g.add(box(1.4, 0.6, 0.12, '#5a3a28', 0, 0.5, -1.0));   // headboard
+      return g;
+    },
+  },
+  {
+    id: 'boombox', label: 'Boombox', swatch: '#2a2a2a', recolor: true, music: true,
+    build(color = '#2a2a2a') {
+      const g = new THREE.Group();
+      g.add(box(1.0, 0.5, 0.3, color, 0, 0.4, 0));           // body
+      for (const x of [-0.28, 0.28]) {
+        const cone = cyl(0.12, 0.12, 0.06, '#111', x, 0.4, 0.16, 12); cone.rotation.x = Math.PI / 2; g.add(cone);
+        const cap = cyl(0.05, 0.05, 0.08, '#555', x, 0.4, 0.17, 12); cap.rotation.x = Math.PI / 2; g.add(cap);
+      }
+      g.add(box(0.34, 0.12, 0.06, '#111', 0, 0.62, 0.06));   // deck
+      g.add(box(0.5, 0.04, 0.04, '#888', 0, 0.72, 0));       // handle
+      return g;
+    },
+  },
+  {
+    id: 'fridge', label: 'Fridge', swatch: '#dfe6ee',
+    build() {
+      const g = new THREE.Group();
+      g.add(box(0.8, 1.7, 0.7, '#dfe6ee', 0, 0.85, 0));
+      g.add(box(0.8, 0.04, 0.72, '#c0c8d0', 0, 1.02, 0));    // door split
+      g.add(box(0.05, 0.5, 0.05, '#888', 0.3, 1.25, 0.37));  // handles
+      g.add(box(0.05, 0.4, 0.05, '#888', 0.3, 0.6, 0.37));
+      return g;
+    },
+  },
+  {
+    id: 'nightstand', label: 'Nightstand', swatch: '#7a5028', recolor: true,
+    build(color = '#7a5028') {
+      const g = new THREE.Group();
+      g.add(box(0.5, 0.5, 0.4, color, 0, 0.25, 0));
+      g.add(box(0.44, 0.12, 0.36, shade(color, -0.1), 0, 0.34, 0.02));
+      g.add(cyl(0.02, 0.02, 0.05, '#333', 0, 0.34, 0.2, 8));
+      return g;
+    },
+  },
+  {
+    id: 'guitar', label: 'Guitar', swatch: '#b5623a',
+    build() {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.07, 12), mat('#b5623a'));
+      body.rotation.x = Math.PI / 2; body.position.y = 0.35; body.castShadow = true; g.add(body);
+      g.add(box(0.09, 0.95, 0.05, '#7a4020', 0, 0.9, 0));    // neck
+      g.rotation.z = 0.18;                                    // leaning
+      return g;
+    },
+  },
+  {
     id: 'lava', label: 'Lava Lamp', swatch: '#ff5c8a', recolor: true,
     build(color = '#ff5c8a') {
       const g = new THREE.Group();

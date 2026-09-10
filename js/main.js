@@ -5,6 +5,7 @@ import { createBuilder } from './builder.js';
 import { createUI } from './ui.js';
 import { createRemotes } from './remotes.js';
 import { createJoystick } from './joystick.js';
+import { createMusic } from './music.js';
 import { CATALOG_BY_ID } from './catalog.js';
 import { saveCrib as saveLocal, loadCrib as loadLocal } from './storage.js';
 import {
@@ -90,6 +91,15 @@ if (mobileMode) {
   try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch {}
 }
 
+// ---- music: ambient background playlist + boombox MP3 playback ----
+const music = createMusic((t) => { const el = $('now-playing'); el.textContent = t; el.classList.remove('hidden'); });
+$('music-btn').addEventListener('click', () => { $('music-btn').textContent = music.toggle() ? '🎵' : '🔇'; });
+$('mp3-input').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (f) { music.playFile(f); ui.toast('playing your track 🎶'); }
+  e.target.value = '';
+});
+
 // ---- explore-mode click: sit / toggle TV ----
 let downX = 0, downY = 0;
 canvas.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
@@ -99,7 +109,8 @@ canvas.addEventListener('pointerup', (e) => {
   const item = builder.pickItemAt(e.clientX, e.clientY);
   if (!item) return;
   const cat = CATALOG_BY_ID[item.id];
-  if (cat && cat.tv) toggleTV(item);
+  if (cat && cat.music) $('mp3-input').click();   // boombox → pick an MP3
+  else if (cat && cat.tv) toggleTV(item);
   else if (cat && cat.sit) sitOn(item, cat);
 });
 let tvOffset = 0;
@@ -167,6 +178,7 @@ async function beginSession() {
   ui.enterGame();
   ui.setOnline(getUser(), myHandle);
   player.setColor(myColor);
+  music.start();
   net.goOnlinePresence(myHandle);
 
   if (unsub.knocks) unsub.knocks();
