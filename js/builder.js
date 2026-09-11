@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { CATALOG_BY_ID } from './catalog.js';
-import { ROOM } from './world.js';
 
 // ---------------------------------------------------------------------------
 // BUILDER
@@ -14,8 +13,9 @@ import { ROOM } from './world.js';
 // Items serialize as { id, x, y, z, rot, color }.
 // ---------------------------------------------------------------------------
 
-export function createBuilder(scene, camera, canvas, { onSelect, onChange } = {}) {
+export function createBuilder(scene, camera, canvas, { onSelect, onChange, getBounds } = {}) {
   const changed = () => onChange && onChange();
+  const bounds = () => (getBounds ? getBounds() : { w: 12, d: 12 });
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const items = [];              // { id, group, color }
@@ -25,7 +25,7 @@ export function createBuilder(scene, camera, canvas, { onSelect, onChange } = {}
   let selected = null;
   let dragging = false;
 
-  const floor = scene.getObjectByName('floor');
+  const floor = () => scene.getObjectByName('floor'); // rebuilt per area
 
   function setPointer(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -38,14 +38,16 @@ export function createBuilder(scene, camera, canvas, { onSelect, onChange } = {}
   // Returns a clamped world point; y is the surface height under the cursor.
   function screenToSurface(clientX, clientY, excludeGroup) {
     setPointer(clientX, clientY);
-    const targets = [floor];
+    const fl = floor();
+    const targets = fl ? [fl] : [];
     for (const it of items) {
       if (it.group === excludeGroup) continue;
       it.group.traverse((o) => { if (o.isMesh) targets.push(o); });
     }
     const hit = raycaster.intersectObjects(targets, false)[0];
     if (!hit) return null;
-    const mx = ROOM.w / 2 - 0.3, mz = ROOM.d / 2 - 0.3;
+    const { w, d } = bounds();
+    const mx = w / 2 - 0.3, mz = d / 2 - 0.3;
     return new THREE.Vector3(
       Math.max(-mx, Math.min(mx, hit.point.x)),
       Math.max(0, hit.point.y),

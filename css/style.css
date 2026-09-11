@@ -21,6 +21,13 @@ html, body { height: 100%; overflow: hidden; background: #05121a; }
 }
 .hidden { display: none !important; }
 
+/* room-transition fade to black */
+#fade {
+  position: fixed; inset: 0; background: #000; z-index: 40;
+  opacity: 0; pointer-events: none; transition: opacity 0.35s ease;
+}
+#fade.on { opacity: 1; }
+
 /* ---------- Frutiger-Aero dark: glossy glass + vivid aqua on deep teal ---------- */
 .overlay {
   position: fixed; inset: 0; display: grid; place-items: center; z-index: 20;

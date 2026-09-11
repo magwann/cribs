@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { ROOM } from './world.js';
 import { attachBubble } from './bubble.js';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +28,7 @@ export function createPlayer(scene, camera, canvas) {
     sitting: false,       // seated on a couch/chair
     speed: 4,             // units / second
     mx: 0, my: 0,         // analog move axis from the mobile joystick (-1..1)
+    bx: 5.5, bz: 5.5,     // half-extents of the current room (clamp)
   };
 
   function sit(worldPos, yaw) {
@@ -122,11 +122,9 @@ export function createPlayer(scene, camera, canvas) {
         avatar.rotation.y = Math.atan2(move.x, move.z);
       }
 
-      // clamp inside room (leave a small margin)
-      const mx = ROOM.w / 2 - 0.5;
-      const mz = ROOM.d / 2 - 0.5;
-      avatar.position.x = Math.max(-mx, Math.min(mx, avatar.position.x));
-      avatar.position.z = Math.max(-mz, Math.min(mz, avatar.position.z));
+      // clamp inside the current room (leave a small margin)
+      avatar.position.x = Math.max(-state.bx, Math.min(state.bx, avatar.position.x));
+      avatar.position.z = Math.max(-state.bz, Math.min(state.bz, avatar.position.z));
     }
 
     updateEmote(dt);
@@ -153,6 +151,7 @@ export function createPlayer(scene, camera, canvas) {
     setColor,
     setMoveAxis: (x, y) => { state.mx = x; state.my = y; },
     setPosition: (x, z) => { state.sitting = false; avatar.position.set(x, 0, z); },
+    setBounds: (w, d) => { state.bx = w / 2 - 0.5; state.bz = d / 2 - 0.5; },
     isSitting: () => state.sitting,
     showBubble: (text) => attachBubble(avatar, text, (state.bubble ||= {})),
     getYaw: () => state.yaw,

@@ -41,16 +41,14 @@ export function signUpEmail(email, pw) { return createUserWithEmailAndPassword(a
 export function logOut() { return signOut(auth); }
 
 // ---- crib persistence ----
-export async function saveMyCrib(items, name = 'my crib', room = null) {
+// doc = { name, areas: { main:{items,floor,wall}, medium:{...}, small:{...} } }
+export async function saveMyCrib(doc_) {
   if (!currentUser) throw new Error('not online');
-  const doc_ = {
-    name,
-    items,
+  await setDoc(doc(db, 'cribs', currentUser.uid), {
+    ...doc_,
     owner: currentUser.uid,
     updatedAt: serverTimestamp(),
-  };
-  if (room) doc_.room = room; // { floor, wall }
-  await setDoc(doc(db, 'cribs', currentUser.uid), doc_);
+  });
 }
 
 // Read any crib by id — works unauthenticated (public read) so visits need no account.

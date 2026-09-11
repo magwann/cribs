@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWorld, ROOM_DEFAULTS } from './world.js';
+import { createWorld, AREAS, ROOM_DEFAULTS } from './world.js';
 import { createPlayer } from './player.js';
 import { createBuilder } from './builder.js';
 import { createUI } from './ui.js';
@@ -15,44 +15,52 @@ import {
 import * as net from './net.js';
 
 // ---------------------------------------------------------------------------
-// MAIN — login-first and always online. You sign in on the title screen, claim
-// a @handle + avatar color, then you're in your crib and visible to friends.
+// MAIN — login-first, always online. A crib has three areas (main/medium/
+// small) linked by doors; walk into a door to fade across. Everything social
+// (presence, rooms, chat, music) keys on the host uid; `area` scopes who you
+// see within the crib.
 // ---------------------------------------------------------------------------
 
 const canvas = document.getElementById('game');
-const { renderer, scene, camera, setFloorColor, setWallColor } = createWorld(canvas);
+const { renderer, scene, camera, buildArea, setFloorColor, setWallColor, getArea } = createWorld(canvas);
 const player = createPlayer(scene, camera, canvas);
 const remotes = createRemotes(scene);
+const $ = (id) => document.getElementById(id);
 
 // ---- mobile detection ----
-// Robust across iOS "Request Desktop Website" (UA hides iPhone) and iPadOS
-// (reports as Mac): fall back to touch + no-hover, which is true on phones.
 const uaMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
 const iPadOS = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
 const touchPhone = navigator.maxTouchPoints > 0 && matchMedia('(hover: none)').matches;
 const isMobile = uaMobile || iPadOS || touchPhone;
 const standalone = matchMedia('(display-mode: standalone)').matches ||
   matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
-const mobileMode = isMobile && standalone; // installed to home screen → play
-const $ = (id) => document.getElementById(id);
+const mobileMode = isMobile && standalone;
+if (isMobile && !standalone) $('a2hs').classList.remove('hidden');
 
-if (isMobile && !standalone) {
-  // In a mobile browser: require install-to-home-screen first.
-  $('a2hs').classList.remove('hidden');
-}
-
-let building = false;
-let visiting = false;
-let myHandle = null;
-let myColor = '#7cf0c8';
-let roomHost = null;
-let roomConn = null;
+// ---- state ----
+let building = false, visiting = false, myHandle = null, myColor = '#7cf0c8';
+let roomHost = null, roomConn = null;
 const unsub = { players: null, chat: null, kicks: null, music: null, knocks: null, myKnock: null, friends: null, freq: null };
-let posAcc = 0, lastChatTs = 0, friendsCache = [], currentRoster = [];
-let roomFloor = ROOM_DEFAULTS.floor, roomWall = ROOM_DEFAULTS.wall;
+let posAcc = 0, lastChatTs = 0, friendsCache = [], currentRoster = [], lastPlayers = {};
 let currentEmote = null, emoteTs = 0;
 const activeTVs = new Set();
 let animatedNodes = [];
+let cribData = emptyCrib();
+let curArea = 'main', myArea = 'main', roomFloor = ROOM_DEFAULTS.floor, roomWall = ROOM_DEFAULTS.wall;
+let areaDoors = [], transitioning = false, arriveCd = 0;
+
+function emptyCrib() { return { name: 'my crib', areas: { main: { items: [] }, medium: { items: [] }, small: { items: [] } } }; }
+function toAreas(data) {
+  const c = emptyCrib();
+  if (!data) return c;
+  c.name = data.name || 'my crib';
+  if (data.areas) {
+    for (const k of ['main', 'medium', 'small']) c.areas[k] = data.areas[k] || { items: [] };
+  } else { // migrate old single-room crib
+    c.areas.main = { items: data.items || [], floor: data.room && data.room.floor, wall: data.room && data.room.wall };
+  }
+  return c;
+}
 
 // ---- top-down build view ----
 let topDown = false, tdHeight = 15;
@@ -76,12 +84,13 @@ const ui = createUI({
 const builder = createBuilder(scene, camera, canvas, {
   onSelect: (item) => ui.setSelected(!!item, !!(item && CATALOG_BY_ID[item.id] && CATALOG_BY_ID[item.id].recolor)),
   onChange: refreshAnimated,
+  getBounds: () => ({ w: getArea().w, d: getArea().d }),
 });
 
-// ---- mobile mode: joystick, no building, landscape prompt ----
+// ---- mobile mode ----
 if (mobileMode) {
   document.body.classList.add('mobile');
-  ui.setMobile(true); // hides the Build button; mobile users only hang out
+  ui.setMobile(true);
   $('joystick').classList.remove('hidden');
   createJoystick($('joy-base'), $('joy-knob'), (x, y) => player.setMoveAxis(x, y));
   const checkOrient = () => $('rotate').classList.toggle('hidden', !matchMedia('(orientation: portrait)').matches);
@@ -91,25 +100,19 @@ if (mobileMode) {
   try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch {}
 }
 
-// ---- music: ambient background playlist + boombox MP3 playback ----
+// ---- music ----
 const music = createMusic((t) => { const el = $('now-playing'); el.textContent = t; el.classList.remove('hidden'); });
 $('music-btn').addEventListener('click', () => { $('music-btn').textContent = music.toggle() ? '🎵' : '🔇'; });
 $('mp3-input').addEventListener('change', async (e) => {
-  const f = e.target.files && e.target.files[0];
-  e.target.value = '';
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
   if (!f || !roomHost) return;
   if (f.size > 8 * 1024 * 1024) { ui.toast('track too big — max ~8MB (free hosting 😅)'); return; }
   ui.toast('loading your track…');
-  try {
-    const dataUrl = await net.fileToDataUrl(f);
-    await net.setRoomMusic(roomHost, dataUrl, f.name, myHandle); // everyone in the room hears it
-  } catch (err) {
-    console.error('music share failed', err);
-    ui.toast('couldn’t play that file');
-  }
+  try { const dataUrl = await net.fileToDataUrl(f); await net.setRoomMusic(roomHost, dataUrl, f.name, myHandle); }
+  catch (err) { console.error(err); ui.toast('couldn’t play that file'); }
 });
 
-// ---- explore-mode click: sit / toggle TV ----
+// ---- explore click: boombox / TV / lava+microwave glow / sit ----
 let downX = 0, downY = 0;
 canvas.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
 canvas.addEventListener('pointerup', (e) => {
@@ -118,10 +121,12 @@ canvas.addEventListener('pointerup', (e) => {
   const item = builder.pickItemAt(e.clientX, e.clientY);
   if (!item) return;
   const cat = CATALOG_BY_ID[item.id];
-  if (cat && cat.music) $('mp3-input').click();   // boombox → pick an MP3
+  if (cat && cat.music) $('mp3-input').click();
   else if (cat && cat.tv) toggleTV(item);
+  else if (cat && cat.glow) toggleGlow(item);
   else if (cat && cat.sit) sitOn(item, cat);
 });
+
 let tvOffset = 0;
 function toggleTV(item) {
   const screen = item.group.getObjectByName('tv-screen');
@@ -131,6 +136,19 @@ function toggleTV(item) {
   if (screen.userData.on) { screen.userData.offset = (tvOffset += 0.17); activeTVs.add(screen); ui.toast('TV on'); }
   else { activeTVs.delete(screen); screen.material.color.copy(screen.userData._base.color); screen.material.emissive.copy(screen.userData._base.emissive); }
 }
+function toggleGlow(item) {
+  const g = item.group;
+  g.userData.glowOn = !g.userData.glowOn;
+  applyGlow(g);
+  ui.toast(CATALOG_BY_ID[item.id].label + (g.userData.glowOn ? ' on' : ' off'));
+}
+function applyGlow(g) {
+  const on = g.userData.glowOn;
+  g.traverse((o) => {
+    if (o.isLight) o.visible = on;
+    if (o.isMesh && o.userData.glow) o.material.emissive.set(on ? (o.userData.glowColor || '#552200') : '#000000');
+  });
+}
 function sitOn(item, cat) {
   item.group.updateMatrixWorld();
   let best = null, bestD = Infinity;
@@ -139,14 +157,17 @@ function sitOn(item, cat) {
     const d = w.distanceTo(player.avatar.position);
     if (d < bestD) { bestD = d; best = { w, yaw: item.group.rotation.y + (s.yaw || 0) }; }
   }
-  if (best) { player.sit(best.w, best.yaw); ui.toast('sitting — press W to stand'); }
+  if (best) { player.sit(best.w, best.yaw); ui.toast('sitting — press W / move to stand'); }
 }
 
-// collect disco/lava nodes to animate each frame
+// collect disco/lava nodes to animate; init glow state for glowables
 function refreshAnimated() {
   animatedNodes = [];
-  for (const { group } of builder.getGroups())
-    group.traverse((o) => { if (o.userData && o.userData.anim) animatedNodes.push({ node: o, type: o.userData.anim, base: o.position.y }); });
+  activeTVs.clear();
+  for (const { group } of builder.getGroups()) {
+    if (group.userData.glowOn !== undefined) applyGlow(group);
+    group.traverse((o) => { if (o.userData && o.userData.anim) animatedNodes.push({ node: o, type: o.userData.anim }); });
+  }
 }
 function animate(elapsed) {
   for (const s of activeTVs) s.material.emissive.setHSL((elapsed * 0.12 + (s.userData.offset || 0)) % 1, 0.85, 0.42 + 0.08 * Math.sin(elapsed * 22));
@@ -154,26 +175,26 @@ function animate(elapsed) {
     if (a.type === 'discoBall') a.node.rotation.y = elapsed * 1.6;
     else if (a.type === 'discoLight') a.node.color.setHSL((elapsed * 0.35) % 1, 1, 0.6);
     else if (a.type === 'lava') {
+      if (a.node.parent && a.node.parent.userData.glowOn === false) continue; // switched off
       const ph = a.node.userData.phase || 0;
-      const t = (Math.sin(elapsed * 0.8 + ph) + 1) / 2;       // 0..1 slow bob
-      a.node.position.y = 0.24 + t * 0.42;                    // rise/fall inside the glass
-      a.node.scale.setScalar(0.8 + 0.35 * Math.sin(elapsed * 1.1 + ph)); // squish
+      const t = (Math.sin(elapsed * 0.8 + ph) + 1) / 2;
+      a.node.position.y = 0.24 + t * 0.42;
+      a.node.scale.setScalar(0.8 + 0.35 * Math.sin(elapsed * 1.1 + ph));
       a.node.material.emissive.setHSL((elapsed * 0.05 + ph * 0.1) % 1, 0.85, 0.4 + 0.2 * t);
     }
   }
 }
 
-// ---- auth / session lifecycle ----
+// ---- auth / session ----
 onUser(async (user) => {
   ui.setOnline(user, myHandle);
   if (!user) { teardownOnline(); ui.showLogin(); return; }
   try {
     const prof = await net.getProfile(user.uid);
     if (prof && prof.handle) { myHandle = prof.handle; myColor = prof.avatarColor || myColor; beginSession(); }
-    else { ui.openUsername(suggestHandle(user)); }
+    else ui.openUsername(suggestHandle(user));
   } catch (e) { console.error('profile load failed', e); ui.setAuthError('could not load your profile'); }
 });
-
 async function onAuth(kind, creds) {
   ui.setAuthError('');
   try {
@@ -182,7 +203,6 @@ async function onAuth(kind, creds) {
     else if (kind === 'signup') await signUpEmail(creds.email, creds.pass);
   } catch (e) { console.error('auth error', e); ui.setAuthError(prettyAuthError(e)); }
 }
-
 async function onClaimUsername(value, color) {
   ui.setUsernameError('');
   try { myHandle = await net.claimUsername(value, color); myColor = color || myColor; beginSession(); }
@@ -195,7 +215,6 @@ async function beginSession() {
   player.setColor(myColor);
   music.start();
   net.goOnlinePresence(myHandle);
-
   if (unsub.knocks) unsub.knocks();
   let known = 0;
   unsub.knocks = net.listenIncomingKnocks((list) => {
@@ -212,14 +231,11 @@ async function beginSession() {
   const target = new URLSearchParams(location.search).get('crib');
   enterRoom(target && target !== getUid() ? target : getUid());
 }
-
 function teardownOnline() {
-  myHandle = null;
-  teardownRoom();
+  myHandle = null; teardownRoom();
   for (const k of ['knocks', 'myKnock', 'friends', 'freq']) if (unsub[k]) { unsub[k](); unsub[k] = null; }
   friendsCache = []; roomHost = null;
 }
-
 async function renderFriends() {
   const withOnline = await Promise.all((friendsCache || []).map(async (f) => ({ ...f, online: await net.isOnline(f.uid).catch(() => false) })));
   ui.setFriends(withOnline);
@@ -228,7 +244,7 @@ function onAddFriend(uid, handle) { net.sendFriendRequest(uid, myHandle).then(()
 function onAcceptFriend(uid, handle) { net.acceptFriend(uid, handle, myHandle).then(() => ui.toast(`you and @${handle} are friends`)).catch((e) => { console.error(e); ui.toast('could not accept'); }); }
 function onDeclineFriend(uid) { net.declineFriend(uid).catch((e) => console.error(e)); }
 
-// ---- rooms ----
+// ---- rooms (multiplayer) ----
 async function enterRoom(hostUid) {
   teardownRoom();
   roomHost = hostUid;
@@ -236,25 +252,20 @@ async function enterRoom(hostUid) {
   let data = null;
   try { data = await loadCribById(hostUid); } catch (e) { console.error(e); }
   if (!data && !isVisiting) data = loadLocal();
-  builder.loadItems(data && data.items ? data.items : []);
-  const room = (data && data.room) || {};
-  setFloorColor(room.floor || ROOM_DEFAULTS.floor);
-  setWallColor(room.wall || ROOM_DEFAULTS.wall);
-  if (!isVisiting) { roomFloor = room.floor || ROOM_DEFAULTS.floor; roomWall = room.wall || ROOM_DEFAULTS.wall; }
+  cribData = toAreas(data);
   visiting = isVisiting;
-  ui.setVisiting(isVisiting, data && data.name);
-  // spawn near the front of the room with a little scatter so people don't stack
-  player.setPosition((Math.random() * 5 - 2.5), 2.5 + Math.random() * 1.5);
+  ui.setVisiting(isVisiting, cribData.name);
+  loadArea('main', AREAS.main.spawn);
 
   lastChatTs = Date.now();
   roomConn = net.joinRoom(hostUid, myHandle);
-  net.setPresenceRoom(hostUid); // so the admin dashboard can group people by room
+  net.setPresenceRoom(hostUid);
   unsub.players = net.listenRoomPlayers(hostUid, (players) => {
-    currentRoster = Object.keys(players || {});
-    remotes.sync(players, getUid());
-    ui.setRoster(players, getUid(), !isVisiting); // host sees Kick buttons
+    lastPlayers = players || {};
+    currentRoster = Object.keys(lastPlayers);
+    remotes.sync(lastPlayers, getUid(), myArea);
+    ui.setRoster(lastPlayers, getUid(), !isVisiting);
   });
-  // if visiting, watch for being kicked by the host
   if (isVisiting) {
     let firstKick = true;
     unsub.kicks = net.listenKicks(hostUid, (kicks) => {
@@ -270,39 +281,26 @@ async function enterRoom(hostUid) {
     }
     if (msgs.length) lastChatTs = Math.max(lastChatTs, msgs[msgs.length - 1].ts);
   });
-  // shared room music — everyone hears whatever's on the boombox
   unsub.music = net.listenRoomMusic(hostUid, (m) => {
-    if (m && m.url) {
-      const at = Math.max(0, (Date.now() - (m.startedAt || Date.now())) / 1000);
-      music.playRoom(m.url, m.name, at, m.startedAt);
-    } else {
-      music.resumeBg();
-    }
+    if (m && m.url) { const at = Math.max(0, (Date.now() - (m.startedAt || Date.now())) / 1000); music.playRoom(m.url, m.name, at, m.startedAt); }
+    else music.resumeBg();
   });
   ui.setRoomMode(true, isVisiting);
 }
 function teardownRoom() {
   if (roomConn) { roomConn.leave(); roomConn = null; }
-  if (unsub.players) { unsub.players(); unsub.players = null; }
-  if (unsub.chat) { unsub.chat(); unsub.chat = null; }
-  if (unsub.kicks) { unsub.kicks(); unsub.kicks = null; }
-  if (unsub.music) { unsub.music(); unsub.music = null; }
-  music.resumeBg(); // back to ambient when leaving a room
+  for (const k of ['players', 'chat', 'kicks', 'music']) if (unsub[k]) { unsub[k](); unsub[k] = null; }
+  music.resumeBg();
   remotes.clear();
-  currentRoster = [];
+  currentRoster = []; lastPlayers = {};
 }
 function onLeaveRoom() {
-  if (roomHost !== getUid()) { enterRoom(getUid()); return; } // visitor → go home
-  // host → close the crib: send every guest home
+  if (roomHost !== getUid()) { enterRoom(getUid()); return; }
   const guests = currentRoster.filter((u) => u !== getUid());
   guests.forEach((u) => net.kickPlayer(getUid(), u));
   ui.toast(guests.length ? 'sent everyone home' : 'nobody else here');
 }
-function onKick(uid, handle) {
-  net.kickPlayer(getUid(), uid);
-  ui.toast(`kicked @${handle}`);
-}
-
+function onKick(uid, handle) { net.kickPlayer(getUid(), uid); ui.toast(`kicked @${handle}`); }
 async function onSearch(value) {
   const res = await net.lookupHandle(value);
   if (!res) { ui.setSearchResults([]); return; }
@@ -321,16 +319,39 @@ async function onKnock(hostUid, handle) {
 }
 function onRespondKnock(visitorUid, approve) { net.respondKnock(visitorUid, approve).catch((e) => console.error(e)); }
 function onSendChat(text) { if (roomHost && myHandle) net.sendChat(roomHost, myHandle, text); }
-function onClearChat() {
-  if (roomHost !== getUid()) return; // host only
-  net.clearChat(getUid()).then(() => ui.toast('chat cleared')).catch((e) => console.error(e));
-}
-
+function onClearChat() { if (roomHost === getUid()) net.clearChat(getUid()).then(() => ui.toast('chat cleared')).catch((e) => console.error(e)); }
 function doEmote(name) { player.emote(name); currentEmote = name; emoteTs = Date.now(); }
 
-function suggestHandle(u) {
-  const base = (u.displayName || u.email || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16);
-  return base.length >= 3 ? base : '';
+// ---- areas / doors ----
+function loadArea(key, spawn) {
+  const info = buildArea(key);
+  curArea = key; myArea = key; areaDoors = info.doors;
+  const a = cribData.areas[key] || { items: [] };
+  builder.loadItems(a.items || []);
+  roomFloor = a.floor || ROOM_DEFAULTS.floor; roomWall = a.wall || ROOM_DEFAULTS.wall;
+  setFloorColor(roomFloor); setWallColor(roomWall);
+  player.setBounds(info.w, info.d);
+  const sp = spawn || AREAS[key].spawn || [0, 2];
+  player.setPosition(sp[0], sp[1]);
+  refreshAnimated();
+  remotes.sync(lastPlayers, getUid(), myArea);
+}
+function syncArea() {
+  cribData.areas[curArea] = { items: builder.getItemsData(), floor: roomFloor, wall: roomWall };
+}
+function switchArea(target) {
+  if (transitioning || !AREAS[target]) return;
+  transitioning = true;
+  ui.fadeOut();
+  setTimeout(() => {
+    syncArea();
+    const from = curArea;
+    const entry = (AREAS[target].entry && AREAS[target].entry[from]) || AREAS[target].spawn;
+    loadArea(target, entry);
+    arriveCd = 1.0;
+    ui.fadeIn();
+    setTimeout(() => { transitioning = false; }, 400);
+  }, 360);
 }
 
 // ---- build / crib ----
@@ -345,14 +366,13 @@ function toggleBuild() {
   setView(building);
 }
 function toggleView() { if (building) setView(!topDown); }
-
 async function onSave() {
-  const items = builder.getItemsData();
-  saveLocal(items);
-  try { await saveMyCrib(items, 'my crib', { floor: roomFloor, wall: roomWall }); ui.flashSave('saved ✓'); }
-  catch (e) { console.error(e); ui.flashSave('save error'); }
+  syncArea();
+  const doc = { name: cribData.name || 'my crib', areas: cribData.areas };
+  saveLocal(doc);
+  if (getUid()) { try { await saveMyCrib(doc); ui.flashSave('saved ✓'); } catch (e) { console.error(e); ui.flashSave('save error'); } }
+  else ui.flashSave('saved locally');
 }
-
 function onShare() {
   const id = visiting ? roomHost : getUid();
   if (!id) return;
@@ -361,8 +381,9 @@ function onShare() {
   else ui.toast(url);
 }
 function onLeave() { location.href = `${location.origin}${location.pathname}`; }
-function onAccount() { if (confirm('Sign out?')) logOut(); }
+function onAccount() { if (getUid()) { if (confirm('Sign out?')) logOut(); } }
 
+function suggestHandle(u) { const base = (u.displayName || u.email || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16); return base.length >= 3 ? base : ''; }
 function prettyAuthError(e) {
   const c = (e && e.code) || '';
   if (c.includes('popup-closed')) return 'sign-in cancelled';
@@ -397,11 +418,24 @@ function tick() {
   remotes.update(dt);
   animate(clock.getElapsedTime());
   if (topDown) applyTopDown();
+
+  // walk into a door to change areas
+  if (!building && !topDown && !transitioning) {
+    if (arriveCd > 0) arriveCd -= dt;
+    else for (const d of areaDoors) {
+      const dx = player.avatar.position.x - d.x, dz = player.avatar.position.z - d.z;
+      if (dx * dx + dz * dz < 0.85 * 0.85) { switchArea(d.to); break; }
+    }
+  }
+
   if (roomConn) {
     posAcc += dt;
     if (posAcc >= 0.12) {
       posAcc = 0;
-      roomConn.update({ x: player.avatar.position.x, z: player.avatar.position.z, ry: player.avatar.rotation.y, sitting: player.isSitting(), color: myColor, emote: currentEmote, emoteTs });
+      roomConn.update({
+        x: player.avatar.position.x, z: player.avatar.position.z, ry: player.avatar.rotation.y,
+        sitting: player.isSitting(), color: myColor, emote: currentEmote, emoteTs, area: myArea,
+      });
     }
   }
   renderer.render(scene, camera);

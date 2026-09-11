@@ -51,11 +51,13 @@ export function createRemotes(scene) {
   const map = new Map(); // uid -> { group, target:{x,y,z,ry}, handle }
 
   return {
-    // players: { uid: {handle,x,z,ry,sitting} }. selfUid is excluded.
-    sync(players, selfUid) {
+    // players: { uid: {handle,x,z,ry,sitting,area} }. selfUid excluded, and
+    // only players in the same area (room within the crib) are shown.
+    sync(players, selfUid, myArea = 'main') {
       const seen = new Set();
       for (const [uid, p] of Object.entries(players || {})) {
         if (uid === selfUid || !p) continue;
+        if ((p.area || 'main') !== (myArea || 'main')) continue;
         seen.add(uid);
         let e = map.get(uid);
         if (!e) {

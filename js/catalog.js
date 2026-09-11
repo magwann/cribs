@@ -369,15 +369,14 @@ export const CATALOG = [
     },
   },
   {
-    id: 'lava', label: 'Lava Lamp', swatch: '#ff5c8a', recolor: true,
+    id: 'lava', label: 'Lava Lamp', swatch: '#ff5c8a', recolor: true, glow: true,
     build(color = '#ff5c8a') {
       const g = new THREE.Group();
+      g.userData.glowOn = true; // on by default; click toggles
       g.add(cyl(0.12, 0.16, 0.1, '#333', 0, 0.05, 0));      // base
-      // translucent glass so the glowing blobs show through
       const glass = cyl(0.1, 0.14, 0.72, '#2a1830', 0, 0.46, 0, 14);
       glass.material.transparent = true; glass.material.opacity = 0.28; glass.castShadow = false;
       g.add(glass);
-      // rising/glowing blobs — animated in main
       for (let i = 0; i < 3; i++) {
         const bl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.055 + i * 0.015, 0), mat(color));
         bl.material.emissive = new THREE.Color(color);
@@ -385,12 +384,31 @@ export const CATALOG = [
         bl.position.y = 0.3 + i * 0.12;
         bl.userData.anim = 'lava';
         bl.userData.phase = i * 2.1;
+        bl.userData.glow = true;
+        bl.userData.glowColor = color;
         g.add(bl);
       }
       const glow = new THREE.PointLight(color, 1.6, 2.5, 2);
       glow.position.y = 0.45;
       g.add(glow);
       g.add(cyl(0.1, 0.1, 0.08, '#333', 0, 0.85, 0));       // cap
+      return g;
+    },
+  },
+  {
+    id: 'microwave', label: 'Microwave', swatch: '#c8ccd0', glow: true,
+    build() {
+      const g = new THREE.Group();
+      g.userData.glowOn = false; // off until you click to "cook"
+      g.add(box(0.7, 0.42, 0.45, '#c8ccd0', 0, 0.3, 0));    // body
+      const win = box(0.34, 0.26, 0.02, '#0a1a10', -0.08, 0.32, 0.23); // door window
+      win.userData.glow = true; win.userData.glowColor = '#ffcc33';
+      win.material.emissive = new THREE.Color(0x000000);
+      g.add(win);
+      g.add(box(0.14, 0.3, 0.03, '#333', 0.24, 0.32, 0.23)); // control panel
+      const light = new THREE.PointLight(0xffcc33, 2, 1.4, 2);
+      light.position.set(-0.08, 0.32, 0.18); light.visible = false;
+      g.add(light);
       return g;
     },
   },

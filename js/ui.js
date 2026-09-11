@@ -187,6 +187,8 @@ export function createUI(handlers) {
       clearTimeout(el.toast._t);
       el.toast._t = setTimeout(() => el.toast.classList.add('hidden'), 2600);
     },
+    fadeOut() { $('fade').classList.add('on'); },
+    fadeIn() { $('fade').classList.remove('on'); },
     setAuthError(msg) { el.authError.textContent = msg || ''; },
     setOnline(user, handle) {
       // Always-online model: the chip just shows who you are.
