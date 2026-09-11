@@ -32,6 +32,7 @@ export function createUI(handlers) {
     toast: $('toast'),
     accountBtn: $('account-btn'),
     authGoogle: $('auth-google'),
+    authGuest: $('auth-guest'),
     authEmail: $('auth-email'),
     authPass: $('auth-pass'),
     authSignin: $('auth-signin'),
@@ -65,6 +66,7 @@ export function createUI(handlers) {
   const creds = () => ({ email: el.authEmail.value.trim(), pass: el.authPass.value });
   let avatarColor = RECOLOR_SWATCHES[3]; // currently-selected avatar color
   let mobile = false;                    // mobile users can't build
+  let guest = false;                     // guests can't build / recolor / add friends
 
   // --- build catalog palette ---
   for (const item of CATALOG) {
@@ -105,6 +107,7 @@ export function createUI(handlers) {
   // auth (now on the title screen)
   el.accountBtn.addEventListener('click', () => handlers.onAccount());
   el.authGoogle.addEventListener('click', () => handlers.onAuth('google'));
+  el.authGuest.addEventListener('click', () => handlers.onAuth('guest'));
   el.authSignin.addEventListener('click', () => handlers.onAuth('signin', creds()));
   el.authSignup.addEventListener('click', () => handlers.onAuth('signup', creds()));
   el.authPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') handlers.onAuth('signin', creds()); });
@@ -152,7 +155,7 @@ export function createUI(handlers) {
     },
     setVisiting(visiting, cribName) {
       // In someone else's crib you can walk around but not build (nor on mobile).
-      el.buildToggle.classList.toggle('hidden', visiting || mobile);
+      el.buildToggle.classList.toggle('hidden', visiting || mobile || guest);
       if (visiting) {
         el.modePill.textContent = cribName ? `VISITING · ${cribName}` : 'VISITING';
         el.builder.classList.add('hidden');
@@ -175,7 +178,12 @@ export function createUI(handlers) {
     },
     setMobile(on) {
       mobile = on; // mobile users can hang out but not build
-      el.buildToggle.classList.toggle('hidden', on);
+      el.buildToggle.classList.toggle('hidden', on || guest);
+    },
+    setGuest(on) {
+      guest = on;
+      document.body.classList.toggle('guest', on); // hides friends section via CSS
+      el.buildToggle.classList.toggle('hidden', on || mobile);
     },
     flashSave(text) {
       el.saveStatus.textContent = text;
@@ -217,11 +225,14 @@ export function createUI(handlers) {
           const knock = document.createElement('button');
           knock.textContent = 'Knock';
           knock.addEventListener('click', () => handlers.onKnock(r.uid, r.handle));
-          const add = document.createElement('button');
-          add.className = 'deny'; add.textContent = '+ Add';
-          add.addEventListener('click', () => handlers.onAddFriend(r.uid, r.handle));
           const wrap = document.createElement('span');
-          wrap.append(knock, document.createTextNode(' '), add);
+          wrap.append(knock);
+          if (!guest) { // guests can join but not add friends
+            const add = document.createElement('button');
+            add.className = 'deny'; add.textContent = '+ Add';
+            add.addEventListener('click', () => handlers.onAddFriend(r.uid, r.handle));
+            wrap.append(document.createTextNode(' '), add);
+          }
           row.appendChild(wrap);
         }
         el.friendResults.appendChild(row);

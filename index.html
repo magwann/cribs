@@ -45,6 +45,8 @@
           <button id="auth-signin" class="auth-provider small">Log in</button>
           <button id="auth-signup" class="auth-provider small ghost">Sign up</button>
         </div>
+        <button id="auth-guest" class="auth-provider ghost" style="margin-top:10px">Continue as guest</button>
+        <p class="auth-sub" style="margin:8px 0 0; font-size:0.7rem;">Guests can join &amp; chat, but can't build, recolor, or add friends.</p>
         <p id="auth-error" class="auth-error"></p>
       </div>
       <p class="hint">WASD move &nbsp;·&nbsp; drag to look &nbsp;·&nbsp; B to build</p>
@@ -75,11 +77,13 @@
       </div>
       <div id="friend-results" class="results"></div>
 
-      <div class="panel-label">Friends</div>
-      <div id="friends-list" class="results"><div class="muted">no friends yet</div></div>
+      <div id="friend-sections">
+        <div class="panel-label">Friends</div>
+        <div id="friends-list" class="results"><div class="muted">no friends yet</div></div>
 
-      <div class="panel-label">Friend requests</div>
-      <div id="req-list" class="results"><div class="muted">none</div></div>
+        <div class="panel-label">Friend requests</div>
+        <div id="req-list" class="results"><div class="muted">none</div></div>
+      </div>
 
       <div class="panel-label">Requests to enter your crib</div>
       <div id="knock-list" class="results"><div class="muted">none yet</div></div>
@@ -179,6 +183,6 @@
     <span class="tip">stack items on surfaces · drag to move</span>
   </div>
 
-  <script type="module" src="js/main.js?v=10"></script>
+  <script type="module" src="js/main.js?v=11"></script>
 </body>
 </html>

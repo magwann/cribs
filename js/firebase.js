@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import {
   getAuth, onAuthStateChanged, signOut,
-  signInWithPopup, GoogleAuthProvider, OAuthProvider,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signInWithPopup, GoogleAuthProvider, OAuthProvider, signInAnonymously,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser,
 } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { firebaseConfig } from './firebase-config.js';
@@ -38,6 +38,9 @@ export function signInGoogle() { return signInWithPopup(auth, new GoogleAuthProv
 export function signInApple() { return signInWithPopup(auth, new OAuthProvider('apple.com')); }
 export function signInEmail(email, pw) { return signInWithEmailAndPassword(auth, email, pw); }
 export function signUpEmail(email, pw) { return createUserWithEmailAndPassword(auth, email, pw); }
+export function signInGuest() { return signInAnonymously(auth); }
+// delete the current (anonymous) user so guest sessions don't pile up
+export function deleteMe() { return currentUser ? deleteUser(currentUser) : Promise.resolve(); }
 export function logOut() { return signOut(auth); }
 
 // ---- crib persistence ----

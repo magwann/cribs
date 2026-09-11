@@ -235,6 +235,9 @@ html, body { height: 100%; overflow: hidden; background: #05121a; }
   background: var(--glass-solid); backdrop-filter: blur(10px); border: 1px solid var(--edge); border-radius: 999px; box-shadow: inset 0 1px 0 var(--edge-bright); }
 .chat-input:focus { outline: none; border-color: var(--aqua); }
 
+/* guest mode hides the friends section */
+body.guest #friend-sections { display: none; }
+
 /* keep the chat clear of the joystick on mobile */
 body.mobile #chat { left: 156px; bottom: 10px; width: min(300px, 38vw); }
 body.mobile .chat-log { max-height: 120px; }

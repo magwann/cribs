@@ -10,7 +10,7 @@ import { CATALOG_BY_ID } from './catalog.js';
 import { saveCrib as saveLocal, loadCrib as loadLocal } from './storage.js';
 import {
   onUser, getUser, getUid, saveMyCrib, loadCribById,
-  signInGoogle, signInEmail, signUpEmail, logOut,
+  signInGoogle, signInEmail, signUpEmail, signInGuest, logOut, deleteMe,
 } from './firebase.js';
 import * as net from './net.js';
 
@@ -38,7 +38,7 @@ const mobileMode = isMobile && standalone;
 if (isMobile && !standalone) $('a2hs').classList.remove('hidden');
 
 // ---- state ----
-let building = false, visiting = false, myHandle = null, myColor = '#7cf0c8';
+let building = false, visiting = false, isGuest = false, myHandle = null, myColor = '#7cf0c8';
 let roomHost = null, roomConn = null;
 const unsub = { players: null, chat: null, kicks: null, music: null, knocks: null, myKnock: null, friends: null, freq: null };
 let posAcc = 0, lastChatTs = 0, friendsCache = [], currentRoster = [], lastPlayers = {};
@@ -188,7 +188,15 @@ function animate(elapsed) {
 // ---- auth / session ----
 onUser(async (user) => {
   ui.setOnline(user, myHandle);
-  if (!user) { teardownOnline(); ui.showLogin(); return; }
+  if (!user) { isGuest = false; teardownOnline(); ui.showLogin(); return; }
+  if (user.isAnonymous) { // guest: no character creation, limited abilities
+    isGuest = true; ui.setGuest(true);
+    myHandle = 'guest' + Math.floor(1000 + Math.random() * 9000);
+    myColor = '#9aa7b5';
+    beginSession();
+    return;
+  }
+  isGuest = false; ui.setGuest(false);
   try {
     const prof = await net.getProfile(user.uid);
     if (prof && prof.handle) { myHandle = prof.handle; myColor = prof.avatarColor || myColor; beginSession(); }
@@ -199,6 +207,7 @@ async function onAuth(kind, creds) {
   ui.setAuthError('');
   try {
     if (kind === 'google') await signInGoogle();
+    else if (kind === 'guest') await signInGuest();
     else if (kind === 'signin') await signInEmail(creds.email, creds.pass);
     else if (kind === 'signup') await signUpEmail(creds.email, creds.pass);
   } catch (e) { console.error('auth error', e); ui.setAuthError(prettyAuthError(e)); }
@@ -357,6 +366,7 @@ function switchArea(target) {
 // ---- build / crib ----
 function toggleBuild() {
   if (mobileMode) { ui.toast('building is on desktop only — hang out & visit on mobile'); return; }
+  if (isGuest) { ui.toast('guests can’t build — sign up to make your own crib'); return; }
   if (visiting) { ui.toast("this isn't your crib"); return; }
   player.stand();
   building = !building;
@@ -381,7 +391,11 @@ function onShare() {
   else ui.toast(url);
 }
 function onLeave() { location.href = `${location.origin}${location.pathname}`; }
-function onAccount() { if (getUid()) { if (confirm('Sign out?')) logOut(); } }
+function onAccount() {
+  if (!getUid()) return;
+  if (isGuest) { deleteMe().catch(() => logOut()); return; } // remove the throwaway guest
+  if (confirm('Sign out?')) logOut();
+}
 
 function suggestHandle(u) { const base = (u.displayName || u.email || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16); return base.length >= 3 ? base : ''; }
 function prettyAuthError(e) {
